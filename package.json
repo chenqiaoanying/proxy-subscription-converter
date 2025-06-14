@@ -1,14 +1,10 @@
 {
   "name": "proxy-subscribe-converter",
   "private": true,
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
-    "build": "npm run build --workspace frontend && npm run build --workspace backend",
-    "start": "npm run start --workspace backend"
+    "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+    "build": "pnpm --filter frontend build && pnpm --filter backend build",
+    "start": "pnpm --filter backend start"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
