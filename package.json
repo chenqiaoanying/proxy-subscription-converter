@@ -2,8 +2,8 @@
   "name": "proxy-subscribe-converter",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
-    "build": "pnpm --filter frontend build && pnpm --filter backend build",
+    "dev": "concurrently -k -n COMMON,FRONTEND,BACKEND -c yellow,blue,green \"pnpm --filter @proxy-subscribe-converter/common dev\" \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+    "build": "pnpm -r run build",
     "start": "pnpm --filter backend start"
   },
   "devDependencies": {
