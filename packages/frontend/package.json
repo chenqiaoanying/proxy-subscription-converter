@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "@psc/frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@proxy-subscribe-converter/common": "workspace:*",
+    "@psc/common": "workspace:*",
     "element-plus": "^2.10.2",
     "vue": "^3.5.13"
   },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, reactive} from 'vue';
-import {Filter} from '@proxy-subscribe-converter/common';
+import {Filter} from '@psc/common';
 
 const props = defineProps<{
   addFilter: (filter: Filter) => void,
