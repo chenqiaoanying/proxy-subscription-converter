@@ -3,6 +3,17 @@
     "../../tsconfig.base.json",
     "@vue/tsconfig/tsconfig.dom.json"
   ],
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@/*": [
+        "*"
+      ],
+      "@components/*": [
+        "components/*"
+      ]
+    }
+  },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",

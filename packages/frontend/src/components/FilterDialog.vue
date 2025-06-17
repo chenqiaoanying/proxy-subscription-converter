@@ -3,7 +3,7 @@ import {computed, reactive} from 'vue';
 import {Filter} from '@psc/common';
 
 const props = defineProps<{
-  addFilter: (filter: Filter) => void,
+  onFilterAdd: (filter: Filter) => void,
   providerProxies: { tag: string, type: string, server: string }[]
 }>();
 
@@ -16,6 +16,10 @@ const supportedTypes = computed(() => {
     types.add(proxy.type)
   })
 });
+
+const emit = defineEmits<{
+  (e: 'filterAdd', filter: Filter): void
+}>();
 
 </script>
 <template>
@@ -42,7 +46,7 @@ const supportedTypes = computed(() => {
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="dialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="addFilter(filter); dialogVisible = false">确 定</el-button>
+        <el-button type="primary" @click="emit('filterAdd', filter); dialogVisible = false">确 定</el-button>
       </div>
     </template>
   </el-dialog>

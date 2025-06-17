@@ -2,12 +2,25 @@
 
 import {ref} from "vue";
 import FilterDialog from "@components/FilterDialog.vue";
+import {Filter, Proxy} from "@psc/common";
 
 const filterDialogVisible = ref(false);
 
-function addFilter() {
-
+function addFilter(filter: Filter) {
+  filter.tag
 }
+
+const templateType = ref("1");
+const subscribeTemplate = ref("");
+const subscribeUrl = ref("");
+const providerProxies = ref([
+
+])
+const subscribes = ref<{
+  url: string,
+  proxies: Proxy[],
+  loaded: boolean,
+}[]>([]);
 
 </script>
 <template>
@@ -42,12 +55,29 @@ function addFilter() {
                 type="textarea"
                 autosize
             />
+            <el-table :data="subscribes">
+              <el-table-column type="expand">
+                <template #default="scope">
+                  <el-table :data="scope.row.proxies">
+                    <el-table-column label="类型" prop="type"></el-table-column>
+                    <el-table-column label="服务器" prop="server"></el-table-column>
+                  </el-table>
+                </template>
+              </el-table-column>
+              <el-table-column label="订阅链接" prop="url"></el-table-column>
+              <el-table-column label="代理数量">
+                <template #default="scope">
+                  {{ scope.row.proxies.length }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="loaded" label="加载状态"></el-table-column>
+
+            </el-table>
           </el-row>
           <el-row>
             <!--添加一个按钮，点击后弹出对话框添加过滤器-->
             <el-button type="primary" @click="filterDialogVisible=true">添加过滤器</el-button>
-            <FilterDialog :dialog-visible="filterDialogVisible" :provider-proxies="providerProxies"
-                           @add-filter="addFilter"/>
+            <FilterDialog v-model:dialog-visible="filterDialogVisible" :provider-proxies="providerProxies" @filter-add="addFilter"/>
           </el-row>
         </el-col>
         <el-col :span="8">
