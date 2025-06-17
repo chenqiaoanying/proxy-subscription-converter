@@ -1,13 +1,10 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./"
+    "rootDir": "./",
+    "declaration": true,
+    "emitDeclarationOnly": false,
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]

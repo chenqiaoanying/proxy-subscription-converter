@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Node LTS + Strictest",
+  "_version": "22.16.0",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    "target": "ES2024",
+    "module": "Node16",
+    "lib": ["ES2024"],
+
+    /* 🔍 模块与路径解析 */
+    "moduleResolution": "node16",
+
+    /* 🔐 类型安全选项 */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* 📦 模块兼容选项 */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* 🧱 开发与构建优化 */
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "incremental": true,
+    "isolatedModules": true,
+  }
+}

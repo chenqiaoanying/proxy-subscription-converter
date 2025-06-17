@@ -5,7 +5,7 @@ const app = express();
 const port = 3000;
 
 // 处理/api请求
-app.get('/api', (req, res) => {
+app.get('/api', (_req, res) => {
   res.send('这是来自/api的响应');
 });
 
