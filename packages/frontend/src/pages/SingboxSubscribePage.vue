@@ -2,17 +2,22 @@
 
 import {ref} from "vue";
 import FilterDialog from "@components/FilterDialog.vue";
+import SubscriptionDialog from "@components/SubscriptionDialog.vue";
 import {Filter, Proxy} from "@psc/common";
 
 const filterDialogVisible = ref(false);
+const subscribeDialogVisible = ref(false);
 
 function addFilter(filter: Filter) {
   filter.tag
 }
 
+function addSubscription(url: string, proxies: Proxy[]) {
+  console.log(url, proxies);
+}
+
 const templateType = ref("1");
 const subscribeTemplate = ref("");
-const subscribeUrl = ref("");
 const providerProxies = ref([
 
 ])
@@ -48,13 +53,8 @@ const subscribes = ref<{
         </el-col>
         <el-col :span="8">
           <el-row>
-            <!--输入订阅链接的输入框-->
-            <el-input
-                v-model="subscribeUrl"
-                placeholder="请输入订阅链接"
-                type="textarea"
-                autosize
-            />
+            <el-button type="primary" @click="subscribeDialogVisible=true">添加订阅链接</el-button>
+            <SubscriptionDialog v-model:dialog-visible="subscribeDialogVisible" @subscription-add="addSubscription"/>
             <el-table :data="subscribes">
               <el-table-column type="expand">
                 <template #default="scope">
@@ -71,7 +71,6 @@ const subscribes = ref<{
                 </template>
               </el-table-column>
               <el-table-column prop="loaded" label="加载状态"></el-table-column>
-
             </el-table>
           </el-row>
           <el-row>

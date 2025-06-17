@@ -3,7 +3,6 @@ import {computed, reactive} from 'vue';
 import {Filter} from '@psc/common';
 
 const props = defineProps<{
-  onFilterAdd: (filter: Filter) => void,
   providerProxies: { tag: string, type: string, server: string }[]
 }>();
 
