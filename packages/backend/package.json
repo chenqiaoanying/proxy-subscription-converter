@@ -1,18 +1,24 @@
 {
   "name": "@psc/backend",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "tsc-watch --noClear --onSuccess \"node dist/index.js\"",
     "build": "tsc",
-    "start": "node dist/src/server.js"
+    "start": "node dist/index.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "@psc/common": "workspace:*",
+    "axios": "^1.10.0",
+    "express": "^5.0.3",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.10.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.17",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.3",
     "nodemon": "^3.1.10",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.2.2"
+    "tsc-watch": "^7.1.1",
+    "typescript": "^5.8.3"
   }
 }

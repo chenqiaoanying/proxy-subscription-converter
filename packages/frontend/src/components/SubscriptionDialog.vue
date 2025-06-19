@@ -1,43 +1,39 @@
 <script setup lang="ts">
 import {ref} from 'vue';
-import {Proxy} from '@psc/common';
 import axios from 'axios';
-import { ElMessage } from 'element-plus';
+import {ElMessage} from 'element-plus';
+import {SubscriptionSchema} from "@psc/common";
+import type {SubscriptionDTO} from "@psc/common";
 
 const dialogVisible = defineModel<boolean>("dialogVisible");
-const subscribeUrl = ref("");
+const url = ref("");
+const userAgent = ref("proxy-subscribe-converter");
+const name = ref(crypto.randomUUID());
 
 const emit = defineEmits<{
-  (e: 'subscriptionAdd', url: string, proxies: Proxy[]): void
+  (e: 'subscriptionAdd', subscription: SubscriptionDTO): void
 }>();
 
 function onConfirm() {
-  if (!subscribeUrl.value) {
+  if (!url.value) {
     ElMessage.error('请输入订阅链接');
     return;
   }
 
-  axios.get(subscribeUrl.value)
-    .then(response => {
-      try {
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        if (Array.isArray(data.outbounds)) {
-          let proxies = (data.outbounds as Record<string,any>[]).map(outbound => new Proxy(outbound));
-          emit('subscriptionAdd', subscribeUrl.value, proxies);
-          dialogVisible.value = false;
-        } else {
-          ElMessage.error('响应中不存在代理信息');
+  axios.get("/api/subscription/load-and-save-proxy", {responseType: 'json', params: {name: name.value, url: url.value, userAgent: userAgent.value}})
+      .then(response => {
+        if (response.data.error !== undefined) {
+          ElMessage.error(response.data.error);
+          return;
         }
-      } catch (error) {
-        console.error('解析响应失败:', error);
-        ElMessage.error('解析响应失败，请检查数据格式');
-        return;
-      }
-    })
-    .catch(error => {
-      console.error('获取代理列表失败:', error);
-      ElMessage.error('获取代理列表失败，请检查链接或网络');
-    });
+        const subscription = SubscriptionSchema.parse(response.data);
+        emit('subscriptionAdd', subscription);
+        dialogVisible.value = false;
+      })
+      .catch(error => {
+        console.error('获取代理列表失败:', error);
+        ElMessage.error('获取代理列表失败，请检查链接或网络');
+      });
 }
 
 </script>
@@ -46,7 +42,10 @@ function onConfirm() {
   <el-dialog title="添加订阅链接" v-model="dialogVisible">
     <el-form label-width="100px">
       <el-form-item label="订阅链接">
-        <el-input v-model="subscribeUrl" placeholder="请输入订阅链接"></el-input>
+        <el-input v-model="url" placeholder="请输入订阅链接"></el-input>
+      </el-form-item>
+      <el-form-item label="订阅链接">
+        <el-input v-model="userAgent" placeholder="请输入订阅链接"></el-input>
       </el-form-item>
     </el-form>
     <template #footer>

@@ -6,11 +6,7 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
 
     "target": "ES2024",
-    "module": "Node16",
     "lib": ["ES2024"],
-
-    /* 🔍 模块与路径解析 */
-    "moduleResolution": "node16",
 
     /* 🔐 类型安全选项 */
     "strict": true,

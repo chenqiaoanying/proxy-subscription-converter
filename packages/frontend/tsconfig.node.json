@@ -1,13 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    /* Bundler mode */
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-  },
+  "extends": ["../../tsconfig.base.json", "../../tsconfig.bundle.json"],
   "include": ["vite.config.ts"]
 }

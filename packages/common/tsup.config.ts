@@ -1,4 +1,3 @@
-// @ts-ignore
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
@@ -6,5 +5,5 @@ export default defineConfig({
     format: ['esm', 'cjs'],
     dts: true,
     outDir: 'dist',
-    clean: true
+    clean: true,
 })

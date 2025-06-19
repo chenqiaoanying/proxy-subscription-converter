@@ -1,2 +1,2 @@
-export * from './models/Filter.js';
-export * from './models/Subscribe.js';
+export * from './models/Filter';
+export * from './models/Subscription';
