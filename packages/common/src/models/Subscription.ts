@@ -6,7 +6,7 @@ export const ProxySchema = z.object({
     type: z.string(),
 }).catchall(z.any());
 
-export const SubscriptionInfoSchema = z.object({
+export const DataUsageSchema = z.object({
     total: z.coerce.number(),
     upload: z.coerce.number(),
     download: z.coerce.number(),
@@ -28,13 +28,13 @@ export const SubscriptionInfoSchema = z.object({
 export const SubscriptionSchema = z.object({
     name: z.string(),
     url: z.string().url(),
-    dataUsage: SubscriptionInfoSchema.optional(),
+    dataUsage: DataUsageSchema.optional(),
     userAgent: z.string().optional(),
     proxies: z.array(ProxySchema)
 });
 
 export type ProxyDTO = z.infer<typeof ProxySchema>;
 
-export type SubscriptionInfoDTO = z.infer<typeof SubscriptionInfoSchema>;
+export type DataUsageDTO = z.infer<typeof DataUsageSchema>;
 
 export type SubscriptionDTO = z.infer<typeof SubscriptionSchema>;

@@ -31,8 +31,13 @@ function onConfirm() {
         dialogVisible.value = false;
       })
       .catch(error => {
-        console.error('获取代理列表失败:', error);
-        ElMessage.error('获取代理列表失败，请检查链接或网络');
+        //修改成更安全的判断方式
+        if (error.response.data.error != undefined) {
+          ElMessage.error(error.response.data.error);
+        } else {
+          console.error('获取代理列表失败:', error);
+          ElMessage.error('获取代理列表失败，请检查链接或网络');
+        }
       });
 }
 
@@ -41,11 +46,14 @@ function onConfirm() {
 <template>
   <el-dialog title="添加订阅链接" v-model="dialogVisible">
     <el-form label-width="100px">
-      <el-form-item label="订阅链接">
+      <el-form-item label="名称">
+        <el-input v-model="name" placeholder="请输入订阅名称"></el-input>
+      </el-form-item>
+      <el-form-item label="链接">
         <el-input v-model="url" placeholder="请输入订阅链接"></el-input>
       </el-form-item>
-      <el-form-item label="订阅链接">
-        <el-input v-model="userAgent" placeholder="请输入订阅链接"></el-input>
+      <el-form-item label="用户代理">
+        <el-input v-model="userAgent" placeholder="请输入用户代理"></el-input>
       </el-form-item>
     </el-form>
     <template #footer>

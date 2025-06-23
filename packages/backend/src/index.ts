@@ -4,6 +4,7 @@ import path from 'path';
 import SubscriptionController from './controllers/SubscriptionController.js';
 import {KnownError} from "./errors/KnownError.js";
 import {container} from "tsyringe";
+import {ZodError} from "zod";
 const app = express();
 const port = 3000;
 
@@ -24,6 +25,12 @@ app.use(express.static(path.resolve(process.cwd(), '../frontend/dist')));
 
 // 全局异常处理中间件
 app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (error instanceof ZodError) {
+    console.error('参数验证失败:', error);
+    res.status(400).json({error: "参数验证失败：" + error.errors.map(e => e.message).join(', ')});
+    return;
+  }
+
   console.error('全局异常捕获:', error);
   if (error instanceof KnownError) {
     res.status(400).json({error: error.message});
