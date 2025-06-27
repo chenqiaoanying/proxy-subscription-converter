@@ -1,44 +1,32 @@
 <script setup lang="ts">
 import {ref} from 'vue';
-import axios from 'axios';
 import {ElMessage} from 'element-plus';
-import {SubscriptionSchema} from "@psc/common";
-import type {SubscriptionDTO} from "@psc/common";
+import {subscriptionsStore} from "@/stores.ts";
 
 const dialogVisible = defineModel<boolean>("dialogVisible");
 const url = ref("");
 const userAgent = ref("proxy-subscribe-converter");
 const name = ref(crypto.randomUUID());
 
-const emit = defineEmits<{
-  (e: 'subscriptionAdd', subscription: SubscriptionDTO): void
-}>();
-
 function onConfirm() {
   if (!url.value) {
     ElMessage.error('请输入订阅链接');
     return;
   }
-
-  axios.get("/api/subscription/load-and-save-proxy", {responseType: 'json', params: {name: name.value, url: url.value, userAgent: userAgent.value}})
-      .then(response => {
-        if (response.data.error !== undefined) {
-          ElMessage.error(response.data.error);
-          return;
-        }
-        const subscription = SubscriptionSchema.parse(response.data);
-        emit('subscriptionAdd', subscription);
-        dialogVisible.value = false;
+  subscriptionsStore().loadAndSaveProxy(name.value, url.value, userAgent.value)
+      .then(() => dialogVisible.value = false)
+      .catch((err: Error) => {
+        ElMessage.error(err.message);
       })
-      .catch(error => {
-        //修改成更安全的判断方式
-        if (error.response.data.error != undefined) {
-          ElMessage.error(error.response.data.error);
-        } else {
-          console.error('获取代理列表失败:', error);
-          ElMessage.error('获取代理列表失败，请检查链接或网络');
-        }
-      });
+  //     .catch(error => {
+  //       //修改成更安全的判断方式
+  //       if (error.response.data.error != undefined) {
+  //         ElMessage.error(error.response.data.error);
+  //       } else {
+  //         console.error('获取代理列表失败:', error);
+  //         ElMessage.error('获取代理列表失败，请检查链接或网络');
+  //       }
+  //     });
 }
 
 </script>

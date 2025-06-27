@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SubscriptionPage from "@/pages/SubscriptionPage.vue";
+import FilterManagementPage from "@/pages/FilterManagementPage.vue";
 
 </script>
 <template>
@@ -40,7 +41,9 @@ import SubscriptionPage from "@/pages/SubscriptionPage.vue";
     <el-tab-pane label="管理订阅">
       <SubscriptionPage/>
     </el-tab-pane>
-    <el-tab-pane label="管理分组">Config</el-tab-pane>
+    <el-tab-pane label="管理分组">
+      <FilterManagementPage/>
+    </el-tab-pane>
     <el-tab-pane label="生成订阅">Role</el-tab-pane>
   </el-tabs>
 </template>

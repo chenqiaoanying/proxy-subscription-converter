@@ -17,7 +17,7 @@ export default class FileService {
 
     saveSubscription(subscription: SubscriptionDTO) {
         try {
-            const fileName = `${subscription.name.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+            const fileName = `${subscription.name}.json`;
             const filePath = path.join(this.subscriptionsDir, fileName);
 
             // 将 Subscription 对象转换为 JSON 字符串
@@ -35,8 +35,8 @@ export default class FileService {
             // 将目录下的文件转换成list
             const files = fs.readdirSync(this.subscriptionsDir);
             return files.map(file => {
-                const data = fs.readFileSync(path.join(this.subscriptionsDir, file), 'utf8');
-                return SubscriptionSchema.parse(data);
+                const content = fs.readFileSync(path.join(this.subscriptionsDir, file), 'utf8');
+                return SubscriptionSchema.parse(JSON.parse(content));
             });
         } catch (error) {
             throw new KnownError('无法从文件系统中获取订阅信息', error);
