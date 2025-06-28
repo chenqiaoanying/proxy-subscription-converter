@@ -21,10 +21,11 @@ export const subscriptionsStore = defineStore('subscription', () => {
     async function loadAndSaveProxy(name: string, url: string, userAgent: string): Promise<void> {
         axios.get("/api/subscription/load-and-save-proxy", {responseType: 'json', params: {name, url, userAgent}})
             .then(response => {
-                if (!response.data.error) {
+                if (response.data.error) {
                     throw new Error(response.data.error);
                 }
-                subscriptionRef.value?.push(SubscriptionSchema.parse(response.data));
+                console.log(response.data);
+                subscriptionRef.value.push(SubscriptionSchema.parse(response.data));
             })
     }
 

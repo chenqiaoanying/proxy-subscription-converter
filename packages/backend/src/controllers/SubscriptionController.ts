@@ -20,7 +20,9 @@ const loadProxyFromUrl = async (url: string, userAgent: string): Promise<[DataUs
             }
             if (!Array.isArray(data.outbounds))
                 throw new KnownError('响应中不存在代理信息');
-            const proxyList = (data.outbounds as any[]).map(outbound => ProxySchema.parse(outbound));
+            const blackList = new Set(["selector", "urltest", "direct", "dns", "block"]);
+            const proxyList = (data.outbounds as any[]).map(outbound => ProxySchema.parse(outbound))
+                .filter(proxy => !blackList.has(proxy.type));
             if (proxyList.length === 0)
                 throw new KnownError('响应中不存在代理信息');
 // parse header Subscription-Userinfo like 'upload=61903278937; download=1348494238989; total=5801856991232; expire=1763742604'

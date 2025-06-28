@@ -1,0 +1,11 @@
+{
+  "name": "@psc/database",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npx prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "6.10.1"
+  }
+}

@@ -1,6 +1,8 @@
 export class Filter {
     tag: string = "";
-    type: string[] = [];
+    subscriptions: string[] = [];
+    includeTypes: string[] = [];
+    excludeTypes: string[] = [];
     includePattern: string | null = null;
     excludePattern: string | null = null;
 }
