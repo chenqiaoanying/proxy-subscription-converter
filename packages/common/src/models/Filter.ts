@@ -1,8 +1,12 @@
-export class Filter {
-    tag: string = "";
-    subscriptions: string[] = [];
-    includeTypes: string[] = [];
-    excludeTypes: string[] = [];
-    includePattern: string | null = null;
-    excludePattern: string | null = null;
-}
+import {z} from "zod/v4";
+import {regexString} from "./commonSchema";
+
+export const FilterSchema = z.object({
+    tag: z.string(),
+    subscriptions: z.array(z.string()).optional(),
+    includeTypes: z.array(z.string()).optional(),
+    excludeTypes: z.array(z.string()).optional(),
+    includePattern: regexString.optional().nullable(),
+    excludePattern: regexString.optional().nullable(),
+})
+export type Filter = z.infer<typeof FilterSchema>;

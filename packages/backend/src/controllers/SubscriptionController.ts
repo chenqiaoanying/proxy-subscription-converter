@@ -1,13 +1,13 @@
 import express from 'express';
 import axios from "axios";
 import {z} from "zod";
-import {DataUsageDTO, ProxyDTO, ProxySchema, SubscriptionSchema, DataUsageSchema} from "@psc/common";
+import {DataUsage, Proxy, ProxySchema, SubscriptionSchema, DataUsageSchema} from "@psc/common";
 import {KnownError} from '../errors/KnownError.js';
-import {injectable} from "tsyringe";
+import {singleton} from "tsyringe";
 import FileService from "../services/FileService.js";
 
-const loadProxyFromUrl = async (url: string, userAgent: string): Promise<[DataUsageDTO | undefined, ProxyDTO[]]> =>
-    axios.get(url, {responseType: 'json', headers: {'User-Agent': userAgent}})
+const loadProxyFromUrl = async (url: string, userAgent: string | undefined): Promise<[DataUsage | undefined, Proxy[]]> =>
+    axios.get(url, {responseType: 'json', headers: {'User-Agent': userAgent ?? 'proxy-subscribe-converter'}})
         .catch(error => {
             throw new KnownError('获取代理列表失败', error);
         })
@@ -20,15 +20,15 @@ const loadProxyFromUrl = async (url: string, userAgent: string): Promise<[DataUs
             }
             if (!Array.isArray(data.outbounds))
                 throw new KnownError('响应中不存在代理信息');
-            const blackList = new Set(["selector", "urltest", "direct", "dns", "block"]);
+            const blackList = ["selector", "urltest", "direct", "dns", "block"];
             const proxyList = (data.outbounds as any[]).map(outbound => ProxySchema.parse(outbound))
-                .filter(proxy => !blackList.has(proxy.type));
+                .filter(proxy => !blackList.includes(proxy.type));
             if (proxyList.length === 0)
                 throw new KnownError('响应中不存在代理信息');
 // parse header Subscription-Userinfo like 'upload=61903278937; download=1348494238989; total=5801856991232; expire=1763742604'
             let dataUsage;
             if (response.headers['Subscription-Userinfo']) {
-                const rawDataUage = (response.headers['Subscription-Userinfo'] as string)
+                const rawDataUsage = (response.headers['Subscription-Userinfo'] as string)
                     .split(';')
                     .reduce((acc, item) => {
                         const [key, value] = item.trim().split('=');
@@ -36,10 +36,10 @@ const loadProxyFromUrl = async (url: string, userAgent: string): Promise<[DataUs
                         return acc;
                     }, {} as Record<string, string>);
                 dataUsage = DataUsageSchema.parse({
-                    total: rawDataUage.total,
-                    upload: rawDataUage.upload,
-                    download: rawDataUage.download,
-                    expiredAt: typeof rawDataUage.expire != undefined && isNaN(parseInt(rawDataUage.expire)) ? new Date(parseInt(rawDataUage.expire) * 1000) : rawDataUage.expire,
+                    total: rawDataUsage.total,
+                    upload: rawDataUsage.upload,
+                    download: rawDataUsage.download,
+                    expiredAt: typeof rawDataUsage.expire != undefined && isNaN(parseInt(rawDataUsage.expire)) ? new Date(parseInt(rawDataUsage.expire) * 1000) : rawDataUsage.expire,
                 });
             }
 
@@ -54,7 +54,7 @@ const loadProxyFromUrl = async (url: string, userAgent: string): Promise<[DataUs
             })*/
         });
 
-@injectable()
+@singleton()
 class SubscriptionController {
     constructor(private fileService: FileService) {
         this.loadAndSaveProxy = this.loadAndSaveProxy.bind(this);
@@ -64,7 +64,7 @@ class SubscriptionController {
     private readonly loadAndSaveProxyQuerySchema = z.object({
         name: z.string({message: '无效的名称'}).nonempty("名称不能为空"),
         url: z.string({message: "无效的URL"}).url({message: "无效的URL"}),
-        userAgent: z.string({message: "'无效的User-Agent'"}).default('proxy-subscribe-converter'),
+        userAgent: z.string({message: "'无效的User-Agent'"}).optional(),
     });
 
     async loadAndSaveProxy(req: express.Request, res: express.Response) {

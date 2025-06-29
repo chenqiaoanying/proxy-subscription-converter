@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, reactive, ref} from 'vue';
 import {Filter} from '@psc/common';
-import type {ProxyDTO} from '@psc/common';
+import type {Proxy} from '@psc/common';
 import {subscriptionsStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 
@@ -12,7 +12,7 @@ const selectAllSubscriptions = ref(true)
 const selectAllTypes = ref(true)
 
 const proxiesBySubscriptions = computed(() => {
-  const map = new Map<string, Readonly<ProxyDTO[]>>();
+  const map = new Map<string, Readonly<Proxy[]>>();
   storeRefs.subscriptions.value.forEach((subscription) => {
     map.set(subscription.name, subscription.proxies);
   })

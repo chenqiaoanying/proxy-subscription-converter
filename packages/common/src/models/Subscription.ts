@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v4";
 
 
 export const ProxySchema = z.object({
@@ -27,14 +27,14 @@ export const DataUsageSchema = z.object({
 
 export const SubscriptionSchema = z.object({
     name: z.string(),
-    url: z.string().url(),
+    url: z.url(),
     dataUsage: DataUsageSchema.optional(),
     userAgent: z.string().optional(),
     proxies: z.array(ProxySchema)
 });
 
-export type ProxyDTO = z.infer<typeof ProxySchema>;
+export type Proxy = z.infer<typeof ProxySchema>;
 
-export type DataUsageDTO = z.infer<typeof DataUsageSchema>;
+export type DataUsage = z.infer<typeof DataUsageSchema>;
 
-export type SubscriptionDTO = z.infer<typeof SubscriptionSchema>;
+export type Subscription = z.infer<typeof SubscriptionSchema>;

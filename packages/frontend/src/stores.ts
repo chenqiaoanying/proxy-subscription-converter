@@ -1,13 +1,13 @@
 import {defineStore} from 'pinia';
 import {SubscriptionSchema} from "@psc/common";
-import type {SubscriptionDTO} from "@psc/common";
+import type {Subscription} from "@psc/common";
 import {readonly, ref} from "vue";
 import axios from "axios";
 
 export const subscriptionsStore = defineStore('subscription', () => {
-    const subscriptionRef = ref<SubscriptionDTO[]>([]);
+    const subscriptionRef = ref<Subscription[]>([]);
 
-    async function listSubscriptions(): Promise<SubscriptionDTO[]> {
+    async function listSubscriptions(): Promise<Subscription[]> {
         return await fetch("/api/subscription/list")
             .then(response => response.json())
             .then(data => {

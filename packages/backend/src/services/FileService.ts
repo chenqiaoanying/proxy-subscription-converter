@@ -1,4 +1,4 @@
-import {SubscriptionDTO, SubscriptionSchema} from "@psc/common";
+import {Subscription, SubscriptionSchema} from "@psc/common";
 import path from "path";
 import fs from "fs";
 import {KnownError} from "../errors/KnownError.js";
@@ -15,7 +15,7 @@ export default class FileService {
         }
     }
 
-    saveSubscription(subscription: SubscriptionDTO) {
+    saveSubscription(subscription: Subscription) {
         try {
             const fileName = `${subscription.name}.json`;
             const filePath = path.join(this.subscriptionsDir, fileName);
@@ -30,7 +30,7 @@ export default class FileService {
         }
     }
 
-    listSubscription(): SubscriptionDTO[] {
+    listSubscription(): Subscription[] {
         try {
             // 将目录下的文件转换成list
             const files = fs.readdirSync(this.subscriptionsDir);

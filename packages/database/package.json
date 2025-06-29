@@ -2,8 +2,18 @@
   "name": "@psc/database",
   "version": "1.0.0",
   "type": "module",
+  "main": "generated/prisma/index.js",
+  "types": "generated/prisma/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./generated/prisma/index.d.ts",
+      "import": "./generated/prisma/index.js"
+    }
+  },
   "scripts": {
-    "build": "npx prisma generate"
+    "prisma:studio": "prisma studio",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@prisma/client": "6.10.1"

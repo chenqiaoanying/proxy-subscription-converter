@@ -1,19 +1,26 @@
 import 'reflect-metadata';
 import express from 'express';
 import path from 'path';
-import SubscriptionController from './controllers/SubscriptionController.js';
+import './registry.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
+import filterRouter from './routes/filterRouter.js';
 import {KnownError} from "./errors/KnownError.js";
+import {z, ZodError} from "zod/v4";
 import {container} from "tsyringe";
-import {ZodError} from "zod";
+import { PrismaClient } from "@psc/database";
+import {PrismaBetterSQLite3} from "@prisma/adapter-better-sqlite3";
 const app = express();
 const port = 3000;
 
-const subscriptionController = container.resolve(SubscriptionController);
+const adapter = new PrismaBetterSQLite3({
+    url: "file:./prisma/dev.db"
+});
+const prismaClient = new PrismaClient({adapter})
+container.registerInstance("PrismaClient", prismaClient);
 
-// 处理/api请求
-// 处理加载 proxy 的请求
-app.get('/api/subscription/load-and-save-proxy', subscriptionController.loadAndSaveProxy);
-app.get('/api/subscription/list', subscriptionController.listSubscription);
+// 注册订阅相关路由
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/filter', filterRouter);
 
 // 处理/api请求
 app.get('/api', (_req, res) => {
@@ -26,8 +33,8 @@ app.use(express.static(path.resolve(process.cwd(), '../frontend/dist')));
 // 全局异常处理中间件
 app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof ZodError) {
-    console.error('参数验证失败:', error);
-    res.status(400).json({error: "参数验证失败：" + error.errors.map(e => e.message).join(', ')});
+    console.error('参数验证失败:', z.prettifyError(error));
+    res.status(400).json({error: "参数验证失败：" + error.issues.map(e => e.message).join(', ')});
     return;
   }
 
