@@ -6,17 +6,8 @@ import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import filterRouter from './routes/filterRouter.js';
 import {KnownError} from "./errors/KnownError.js";
 import {z, ZodError} from "zod/v4";
-import {container} from "tsyringe";
-import { PrismaClient } from "@psc/database";
-import {PrismaBetterSQLite3} from "@prisma/adapter-better-sqlite3";
 const app = express();
 const port = 3000;
-
-const adapter = new PrismaBetterSQLite3({
-    url: "file:./prisma/dev.db"
-});
-const prismaClient = new PrismaClient({adapter})
-container.registerInstance("PrismaClient", prismaClient);
 
 // 注册订阅相关路由
 app.use('/api/subscription', subscriptionRoutes);
