@@ -13,7 +13,7 @@
   "scripts": {
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate:dev": "prisma migrate dev --name dev"
   },
   "dependencies": {
     "@prisma/client": "6.10.1"

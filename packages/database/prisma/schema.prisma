@@ -13,8 +13,9 @@ generator client {
 
 datasource db {
   // provider = "postgresql"
+  // url      = env("DATABASE_URL")
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model Subscription {
@@ -33,7 +34,7 @@ model Proxy {
   subscription    Subscription @relation(fields: [subscriptionId], references: [id])
   tag             String       @unique
   type            String
-  raw             String
+  raw             Json
 }
 
 model Filter {
