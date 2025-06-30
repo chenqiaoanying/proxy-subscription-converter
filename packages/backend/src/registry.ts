@@ -12,8 +12,8 @@ const prismaClient = new PrismaClient({adapter})
 
 @registry([
     {
-        token: "PrismaClient",
-        useValue: prismaClient
+        token: PrismaClient,
+        useValue: prismaClient,
     }
 ])
 export default class RegistryService {}

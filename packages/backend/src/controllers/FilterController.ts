@@ -1,19 +1,18 @@
 import express from 'express';
 import {PrismaClient} from '@psc/database';
-import {inject, injectable, singleton} from "tsyringe";
+import {singleton} from "tsyringe";
 import {FilterSchema} from "@psc/common";
 
-@injectable()
 @singleton()
 class FilterController {
-    constructor(@inject("PrismaClient") private prisma?: PrismaClient) {
+    constructor(private readonly prisma: PrismaClient) {
     }
 
     // 创建 Filter
     async createFilter(req: express.Request, res: express.Response) {
         const requestFilter = FilterSchema.parse(req.body);
 
-        const newFilter = await this.prisma!.filter.create({
+        const newFilter = await this.prisma.filter.create({
             data: {
                 tag: requestFilter.tag,
                 includeTypes: requestFilter.includeTypes?.join(),
@@ -28,7 +27,7 @@ class FilterController {
 
     // 获取所有 Filter
     async getAllFilters(_req: express.Request, res: express.Response) {
-        const filters = await this.prisma!.filter.findMany();
+        const filters = await this.prisma.filter.findMany();
         const responseFilters = filters.map((filter) => FilterSchema.parse({
             data: filter,
             includeTypes: filter.includeTypes?.split(','),
@@ -68,7 +67,7 @@ class FilterController {
             includeRegex
         } = req.body;
 
-        const updatedFilter = await this.prisma!.filter.update({
+        const updatedFilter = await this.prisma.filter.update({
             where: {id: parseInt(id)},
             data: {
                 tag,
@@ -85,7 +84,7 @@ class FilterController {
     // 删除 Filter
     async deleteFilter(req: express.Request, res: express.Response) {
         const {id} = req.params;
-        await this.prisma!.filter.delete({
+        await this.prisma.filter.delete({
             where: {id: parseInt(id)}
         });
 

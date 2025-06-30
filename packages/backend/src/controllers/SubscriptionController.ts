@@ -56,7 +56,7 @@ const loadProxyFromUrl = async (url: string, userAgent: string | undefined): Pro
 
 @singleton()
 class SubscriptionController {
-    constructor(private fileService: FileService) {
+    constructor(private readonly fileService: FileService) {
         this.loadAndSaveProxy = this.loadAndSaveProxy.bind(this);
         this.listSubscription = this.listSubscription.bind(this);
     }
