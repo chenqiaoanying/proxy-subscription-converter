@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {computed, reactive, ref} from 'vue';
-import {Filter} from '@psc/common';
-import type {Proxy} from '@psc/common';
+import type {Proxy, Filter} from '@psc/common';
 import {subscriptionsStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 
@@ -20,7 +19,13 @@ const proxiesBySubscriptions = computed(() => {
 })
 
 const dialogVisible = defineModel<boolean>("dialogVisible");
-const filter = reactive(new Filter());
+const filter = reactive({
+  tag: "",
+  subscriptions: [],
+  includeTypes: [],
+  includePattern: undefined,
+  excludePattern: undefined,
+});
 
 const supportedTypes = computed(() => {
   const types = new Set<string>()
@@ -49,13 +54,13 @@ const emit = defineEmits<{
         <el-input v-model="filter.tag" placeholder="请输入名称"></el-input>
       </el-form-item>
       <el-form-item label="订阅">
-        <el-checkbox v-show="filter.subscriptions.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>
+        <el-checkbox v-show="filter.subscriptions?.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>
         <el-checkbox-group v-show="!selectAllSubscriptions" v-model="filter.subscriptions">
           <el-checkbox v-for="name in proxiesBySubscriptions.keys()" :label="name" :key="name"/>
         </el-checkbox-group>
       </el-form-item>
       <el-form-item v-show="supportedTypes.size > 0" label="代理类型">
-        <el-checkbox v-show="filter.includeTypes.length == 0" v-model="selectAllTypes" label="所有类型" style="width: 100%"/>
+        <el-checkbox v-show="filter.includeTypes?.length == 0" v-model="selectAllTypes" label="所有类型" style="width: 100%"/>
         <el-checkbox v-show="!selectAllTypes" v-model="filter.includeTypes" v-for="type in supportedTypes" :label="type" :key="type"/>
       </el-form-item>
       <el-form-item label="包含">

@@ -19,30 +19,34 @@ datasource db {
 }
 
 model Subscription {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
+  name      String   @id
   url       String
   userAgent String?
+  dataUpload    BigInt?
+  dataDownload  BigInt?
+  dataTotal     BigInt?
+  expireAt   BigInt?
   proxies   Proxy[]
+  filters   Filter[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Proxy {
-  id              Int          @id @default(autoincrement())
-  subscriptionId  Int
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
-  tag             String       @unique
-  type            String
-  raw             Json
+  id                Int           @id @default(autoincrement())
+  tag               String        @unique
+  type              String
+  subscriptionName  String
+  subscription      Subscription  @relation(fields: [subscriptionName], references: [name])
+  raw               Json
 }
 
 model Filter {
-  id            Int      @id @default(autoincrement())
-  tag           String   @unique
+  tag           String    @id
+  subscriptions Subscription[]
   includeTypes  String?
   excludeTypes  String?
   excludeRegex  String?
   includeRegex  String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 }

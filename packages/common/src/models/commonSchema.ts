@@ -1,6 +1,6 @@
 import {z} from "zod/v4";
 
-export const regexString = z.string().pipe(z.transform((val, ctx) => {
+export const regexString = z.string().transform((val, ctx) => {
     try {
         return RegExp(val);
     } catch (e) {
@@ -10,4 +10,4 @@ export const regexString = z.string().pipe(z.transform((val, ctx) => {
             input: val,
         });
     }
-}));
+});

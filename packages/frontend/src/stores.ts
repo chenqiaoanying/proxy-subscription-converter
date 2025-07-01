@@ -8,7 +8,7 @@ export const subscriptionsStore = defineStore('subscription', () => {
     const subscriptionRef = ref<Subscription[]>([]);
 
     async function listSubscriptions(): Promise<Subscription[]> {
-        return await fetch("/api/subscription/list")
+        return await fetch("/api/subscription")
             .then(response => response.json())
             .then(data => {
                 return (data as any[]).map((item) => SubscriptionSchema.parse(item));
@@ -19,7 +19,7 @@ export const subscriptionsStore = defineStore('subscription', () => {
     }
 
     async function loadAndSaveProxy(name: string, url: string, userAgent: string): Promise<void> {
-        axios.get("/api/subscription/load-and-save-proxy", {responseType: 'json', params: {name, url, userAgent}})
+        axios.get("/api/subscription/load-and-save", {responseType: 'json', params: {name, url, userAgent}})
             .then(response => {
                 if (response.data.error) {
                     throw new Error(response.data.error);
