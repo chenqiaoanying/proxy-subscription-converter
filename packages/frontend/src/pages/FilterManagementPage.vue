@@ -1,23 +1,20 @@
 <script setup lang="ts">
 import FilterDialog from "@components/FilterDialog.vue";
 import {ref} from "vue";
-import {Filter} from "@psc/common";
+import {useFilterStore} from "@/stores.ts";
+import {storeToRefs} from "pinia";
 
 const filterDialogVisible = ref(false);
-
-function addFilter(filter: Filter) {
-  console.log(filter);
-  filters.value.push(filter);
-}
-
-const filters = ref<Filter[]>([]);
+const filterStore = useFilterStore();
+const filterStoreRefs = storeToRefs(filterStore);
+const filters = filterStoreRefs.filters;
 
 </script>
 
 <template>
   <el-row justify="end">
     <el-button type="primary" @click="filterDialogVisible = true">添加过滤器</el-button>
-    <FilterDialog v-model:dialog-visible="filterDialogVisible" :providerProxies="[]" @filter-add="addFilter"/>
+    <FilterDialog v-model:dialog-visible="filterDialogVisible" :providerProxies="[]"/>
   </el-row>
   <el-divider/>
   <el-row>

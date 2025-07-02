@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import SubscriptionDialog from "@components/SubscriptionDialog.vue";
-import {subscriptionsStore} from "@/stores.ts";
+import {useSubscriptionStore} from "@/stores.ts";
 import { storeToRefs } from 'pinia';
 
-const store = subscriptionsStore();
+const store = useSubscriptionStore();
 const subscriptions = storeToRefs(store).subscriptions;
 const addSubscriptionDialogVisible = ref(false);
 

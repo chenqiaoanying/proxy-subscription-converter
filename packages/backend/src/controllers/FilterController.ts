@@ -37,14 +37,14 @@ class FilterController {
     }
 
     // 创建 Filter
-    async createFilter(req: express.Request, res: express.Response) {
+    createFilter = async (req: express.Request, res: express.Response) => {
         const requestFilter = FilterSchema.parse(req.body);
         await this.save(requestFilter);
         res.status(201).json(requestFilter);
     }
 
     // 更新 Filter
-    async updateFilter(req: express.Request, res: express.Response) {
+    updateFilter = async (req: express.Request, res: express.Response) => {
         const {tag} = req.params;
         const requestFilter = FilterSchema.parse({tag, ...req.body});
         await this.save(requestFilter);
@@ -52,14 +52,14 @@ class FilterController {
     }
 
     // 获取所有 Filter
-    async getAllFilters(_req: express.Request, res: express.Response) {
+    getAllFilters = async (_req: express.Request, res: express.Response) => {
         const filters = await this.prisma.filter.findMany();
         const responseFilters = filters.map((filter) => this.toContract(filter));
         res.json(responseFilters);
     }
 
     // 根据 ID 获取单个 Filter
-    async getFilterById(req: express.Request, res: express.Response) {
+    getFilterById = async (req: express.Request, res: express.Response) => {
         const {tag} = req.params;
         const filter = await this.prisma.filter.findUnique({
             where: {tag}
@@ -72,9 +72,8 @@ class FilterController {
         res.json(this.toContract(filter));
     }
 
-
     // 删除 Filter
-    async deleteFilter(req: express.Request, res: express.Response) {
+    deleteFilter = async (req: express.Request, res: express.Response) => {
         const {tag} = req.params;
         await this.prisma.filter.delete({
             where: {tag}

@@ -9,6 +9,8 @@ import {z, ZodError} from "zod/v4";
 const app = express();
 const port = 3000;
 
+app.use(express.json());
+
 // 注册订阅相关路由
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/filter', filterRouter);

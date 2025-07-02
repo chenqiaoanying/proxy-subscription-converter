@@ -8,14 +8,14 @@ const router = express.Router();
 const filterController = container.resolve(FilterController);
 
 // 创建 Filter
-router.post('/', filterController.createFilter.bind(filterController));
+router.post('/', filterController.createFilter);
 // 获取所有 Filter
-router.get('/', filterController.getAllFilters.bind(filterController));
+router.get('/', filterController.getAllFilters);
 // 根据 ID 获取单个 Filter
-// router.get('/:id', filterController.getFilterById.bind(filterController));
+// router.get('/:id', filterController.getFilterById);
 // 更新 Filter
-router.put('/:id', filterController.updateFilter.bind(filterController));
+router.put('/:id', filterController.updateFilter);
 // 删除 Filter
-router.delete('/:id', filterController.deleteFilter.bind(filterController));
+router.delete('/:id', filterController.deleteFilter);
 
 export default router;

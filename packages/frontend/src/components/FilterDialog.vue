@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import {computed, reactive, ref} from 'vue';
-import type {Proxy, Filter} from '@psc/common';
-import {subscriptionsStore} from "@/stores.ts";
+import type {Proxy} from '@psc/common';
+import {useSubscriptionStore, useFilterStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
+import {ElMessage} from "element-plus";
 
-const store = subscriptionsStore();
-const storeRefs = storeToRefs(store);
+const subscriptionStore = useSubscriptionStore();
+const subscriptionStoreRefs = storeToRefs(subscriptionStore);
+const filterStore = useFilterStore();
 
 const selectAllSubscriptions = ref(true)
 const selectAllTypes = ref(true)
 
 const proxiesBySubscriptions = computed(() => {
   const map = new Map<string, Readonly<Proxy[]>>();
-  storeRefs.subscriptions.value.forEach((subscription) => {
+  subscriptionStoreRefs.subscriptions.value.forEach((subscription) => {
     map.set(subscription.name, subscription.proxies);
   })
   return map;
@@ -42,9 +44,21 @@ const supportedTypes = computed(() => {
   return types;
 });
 
-const emit = defineEmits<{
-  (e: 'filterAdd', filter: Filter): void
-}>();
+function onConfirm() {
+  if (!filter.tag) {
+    ElMessage.error('请输入名称');
+    return;
+  }
+
+  filterStore.saveFilters(filter)
+      .then(() => {
+        dialogVisible.value = false;
+      })
+      .catch((err) => {
+        ElMessage.error(err.message);
+      })
+
+}
 
 </script>
 <template>
@@ -56,12 +70,14 @@ const emit = defineEmits<{
       <el-form-item label="订阅">
         <el-checkbox v-show="filter.subscriptions?.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>
         <el-checkbox-group v-show="!selectAllSubscriptions" v-model="filter.subscriptions">
-          <el-checkbox v-for="name in proxiesBySubscriptions.keys()" :label="name" :key="name"/>
+          <el-checkbox v-for="name in proxiesBySubscriptions.keys()" :label="name" :value="name" :key="name"/>
         </el-checkbox-group>
       </el-form-item>
       <el-form-item v-show="supportedTypes.size > 0" label="代理类型">
         <el-checkbox v-show="filter.includeTypes?.length == 0" v-model="selectAllTypes" label="所有类型" style="width: 100%"/>
-        <el-checkbox v-show="!selectAllTypes" v-model="filter.includeTypes" v-for="type in supportedTypes" :label="type" :key="type"/>
+        <el-checkbox-group v-show="!selectAllTypes" v-model="filter.includeTypes">
+          <el-checkbox v-for="type in supportedTypes" :label="type" :value="type" :key="type"/>
+        </el-checkbox-group>
       </el-form-item>
       <el-form-item label="包含">
         <el-input v-model="filter.includePattern" placeholder="请输入正则表达式"></el-input>
@@ -72,7 +88,7 @@ const emit = defineEmits<{
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="emit('filterAdd', filter); dialogVisible = false">确 定</el-button>
+        <el-button type="primary" @click="onConfirm">确 定</el-button>
       </div>
     </template>
   </el-dialog>

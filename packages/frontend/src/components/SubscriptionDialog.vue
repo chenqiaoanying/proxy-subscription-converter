@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ref} from 'vue';
 import {ElMessage} from 'element-plus';
-import {subscriptionsStore} from "@/stores.ts";
+import {useSubscriptionStore} from "@/stores.ts";
 
 const dialogVisible = defineModel<boolean>("dialogVisible");
 const url = ref("");
@@ -13,7 +13,7 @@ function onConfirm() {
     ElMessage.error('请输入订阅链接');
     return;
   }
-  subscriptionsStore().loadAndSaveProxy(name.value, url.value, userAgent.value)
+  useSubscriptionStore().loadAndSaveProxy(name.value, url.value, userAgent.value)
       .then(() => dialogVisible.value = false)
       .catch((err: Error) => {
         ElMessage.error(err.message);
