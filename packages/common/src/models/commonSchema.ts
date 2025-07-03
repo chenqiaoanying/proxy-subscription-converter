@@ -1,13 +1,10 @@
 import {z} from "zod/v4";
 
-export const regexString = z.string().transform((val, ctx) => {
+export const regexString = z.string().refine((val) => {
     try {
-        return RegExp(val);
+        RegExp(val);
+        return true;
     } catch (e) {
-        ctx.issues.push({
-            code: "custom",
-            message: "非法的正则表达式",
-            input: val,
-        });
+        return false;
     }
-});
+}, {error: "非法的正则表达式"});

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import SingboxSubscribePage from "@/pages/SingboxSubscribePage.vue";
+import MainPage from "@/pages/MainPage.vue";
 </script>
 
 <template>
-  <SingboxSubscribePage />
+  <MainPage />
 </template>
 
 <style lang="scss" scoped>

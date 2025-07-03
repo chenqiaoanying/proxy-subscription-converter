@@ -17,16 +17,7 @@ function onConfirm() {
       .then(() => dialogVisible.value = false)
       .catch((err: Error) => {
         ElMessage.error(err.message);
-      })
-  //     .catch(error => {
-  //       //修改成更安全的判断方式
-  //       if (error.response.data.error != undefined) {
-  //         ElMessage.error(error.response.data.error);
-  //       } else {
-  //         console.error('获取代理列表失败:', error);
-  //         ElMessage.error('获取代理列表失败，请检查链接或网络');
-  //       }
-  //     });
+      });
 }
 
 </script>

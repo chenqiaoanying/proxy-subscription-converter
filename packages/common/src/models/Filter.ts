@@ -3,9 +3,9 @@ import {regexString} from "./commonSchema";
 
 export const FilterSchema = z.object({
     tag: z.string().nonempty(),
-    subscriptions: z.array(z.string()).optional(),
-    includeTypes: z.array(z.string()).optional(),
-    excludeTypes: z.array(z.string()).optional(),
+    subscriptions: z.array(z.string().nonempty()).optional(),
+    includeTypes: z.array(z.string().nonempty()).optional(),
+    excludeTypes: z.array(z.string().nonempty()).optional(),
     includePattern: regexString.optional().nullable(),
     excludePattern: regexString.optional().nullable(),
 })

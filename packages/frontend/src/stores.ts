@@ -26,7 +26,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     async function loadAndSaveProxy(name: string, url: string, userAgent: string): Promise<void> {
         axios.get("/api/subscription/load-and-save", {responseType: 'json', params: {name, url, userAgent}})
             .then(response => {
-                subscriptionsRef.value.push(SubscriptionSchema.parse(response.data));
+                const savedSubscriptions = SubscriptionSchema.parse(response.data);
+                subscriptionsRef.value.push(savedSubscriptions);
+                return savedSubscriptions;
             })
             .catch(axiosErrorMapper);
     }
@@ -53,10 +55,18 @@ export const useFilterStore = defineStore('filter', () => {
     async function saveFilters(filter: Filter) {
         return axios.post("/api/filter", filter)
             .then(response => {
-                filtersRef.value.push(FilterSchema.parse(response.data));
+                const savedFilters = FilterSchema.parse(response.data);
+                filtersRef.value.push(savedFilters);
+                return savedFilters;
             })
             .catch(axiosErrorMapper);
     }
 
-    return {filters: readonly(filtersRef), listFilters, saveFilters}
+    async function forceReloadFilters() {
+        const result = await listFilters();
+        filtersRef.value = result;
+        return result;
+    }
+
+    return {filters: readonly(filtersRef), listFilters, saveFilters, forceReloadFilters};
 })

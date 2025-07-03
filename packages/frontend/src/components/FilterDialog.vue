@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import {computed, reactive, ref} from 'vue';
-import type {Proxy} from '@psc/common';
+import type {Proxy, Filter} from '@psc/common';
+import {FilterSchema} from "@psc/common";
 import {useSubscriptionStore, useFilterStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 import {ElMessage} from "element-plus";
+
+const props = defineProps<{
+  toUpdateFilter?: Filter,
+}>()
 
 const subscriptionStore = useSubscriptionStore();
 const subscriptionStoreRefs = storeToRefs(subscriptionStore);
@@ -23,10 +28,10 @@ const proxiesBySubscriptions = computed(() => {
 const dialogVisible = defineModel<boolean>("dialogVisible");
 const filter = reactive({
   tag: "",
-  subscriptions: [],
-  includeTypes: [],
-  includePattern: undefined,
-  excludePattern: undefined,
+  subscriptions: [] as string[],
+  includeTypes: [] as string[],
+  includePattern: undefined as string | undefined,
+  excludePattern: undefined as string | undefined,
 });
 
 const supportedTypes = computed(() => {
@@ -50,7 +55,7 @@ function onConfirm() {
     return;
   }
 
-  filterStore.saveFilters(filter)
+  filterStore.saveFilters(FilterSchema.parse(filter))
       .then(() => {
         dialogVisible.value = false;
       })
@@ -60,12 +65,20 @@ function onConfirm() {
 
 }
 
+function onOpen() {
+  filter.tag = props.toUpdateFilter?.tag || "";
+  filter.subscriptions = props.toUpdateFilter?.subscriptions || [];
+  filter.includeTypes = props.toUpdateFilter?.includeTypes || [];
+  filter.includePattern = props.toUpdateFilter?.includePattern || undefined;
+  filter.excludePattern = props.toUpdateFilter?.excludePattern || undefined;
+}
+
 </script>
 <template>
-  <el-dialog title="添加过滤器" v-model="dialogVisible">
+  <el-dialog :title='props.toUpdateFilter ? "编辑过滤器": "添加过滤器"' v-model="dialogVisible" @open="onOpen">
     <el-form :model="filter" label-width="100px">
       <el-form-item label="名称">
-        <el-input v-model="filter.tag" placeholder="请输入名称"></el-input>
+        <el-input v-model="filter.tag" placeholder="请输入名称" :disabled="props.toUpdateFilter != undefined"></el-input>
       </el-form-item>
       <el-form-item label="订阅">
         <el-checkbox v-show="filter.subscriptions?.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>

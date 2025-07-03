@@ -3,14 +3,17 @@ import {onMounted, ref} from "vue";
 import SubscriptionDialog from "@components/SubscriptionDialog.vue";
 import {useSubscriptionStore} from "@/stores.ts";
 import { storeToRefs } from 'pinia';
+import {ElMessage} from "element-plus";
 
 const store = useSubscriptionStore();
 const subscriptions = storeToRefs(store).subscriptions;
 const addSubscriptionDialogVisible = ref(false);
 
 onMounted(() => {
-  // 从后端获取订阅列表
-  store.forceReloadSubscriptions();
+  store.forceReloadSubscriptions()
+      .catch(err => {
+        ElMessage.error(err.message);
+      });
 })
 </script>
 <template>

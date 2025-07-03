@@ -1,5 +1,5 @@
 import express from 'express';
-import {PrismaClient, Filter as FilterEntity} from '@psc/database';
+import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
 import {FilterSchema} from "@psc/common";
 import type {Filter} from "@psc/common";
@@ -9,22 +9,23 @@ class FilterController {
     constructor(private readonly prisma: PrismaClient) {
     }
 
-    private toContract(filter: FilterEntity) {
-        return FilterSchema.parse({
-            data: filter,
-            includeTypes: filter.includeTypes?.split(','),
-            excludeTypes: filter.excludeTypes?.split(','),
+    private toContract(filter: Prisma.FilterGetPayload<{ include: { subscriptions: true } }>) {
+        return {
+            tag: filter.tag,
+            subscriptions: filter.subscriptions.map((subscription) => subscription.name),
+            includeTypes: filter.includeTypes?.split(',')?.filter((type) => type.length > 0),
+            excludeTypes: filter.excludeTypes?.split(',')?.filter((type) => type.length > 0),
             includePattern: filter.includeRegex,
             excludePattern: filter.excludeRegex,
-        });
+        } as Filter;
     }
 
     private async save(filter: Filter) {
         const updateFields = {
             includeTypes: filter.includeTypes?.join(),
             excludeTypes: filter.excludeTypes?.join(),
-            excludeRegex: filter.excludePattern?.source,
-            includeRegex: filter.includePattern?.source,
+            excludeRegex: filter.excludePattern,
+            includeRegex: filter.includePattern,
         }
         return this.prisma.filter.upsert({
             where: {tag: filter.tag},
@@ -53,7 +54,7 @@ class FilterController {
 
     // 获取所有 Filter
     getAllFilters = async (_req: express.Request, res: express.Response) => {
-        const filters = await this.prisma.filter.findMany();
+        const filters = await this.prisma.filter.findMany({include: {subscriptions: true}});
         const responseFilters = filters.map((filter) => this.toContract(filter));
         res.json(responseFilters);
     }
@@ -62,7 +63,8 @@ class FilterController {
     getFilterById = async (req: express.Request, res: express.Response) => {
         const {tag} = req.params;
         const filter = await this.prisma.filter.findUnique({
-            where: {tag}
+            where: {tag},
+            include: {subscriptions: true}
         });
 
         if (!filter) {
