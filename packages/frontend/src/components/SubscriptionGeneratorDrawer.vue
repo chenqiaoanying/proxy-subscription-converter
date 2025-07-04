@@ -1,8 +1,21 @@
 <script setup lang="ts">
 import {ref} from "vue";
+import MonacoEditor from '@components/MonacoEditor.vue';
 
 const visible = defineModel<boolean>("visible");
 const templateType = ref<"url" | "raw">("url");
+const templateContent = ref("");
+
+const jsonError = ref(undefined as string | undefined)
+
+function validateJson() {
+  try {
+    JSON.parse(templateContent.value);
+    jsonError.value = undefined;
+  } catch (e) {
+    jsonError.value = `无效的JSON:${getErrorMessage(e)}`
+  }
+}
 
 </script>
 
@@ -18,8 +31,8 @@ const templateType = ref<"url" | "raw">("url");
         </el-form-item>
         <el-form-item>
           <el-select v-model="templateType" placeholder="请选择模板类型">
-            <el-option label="提供模板链接" value="url"/>
-            <el-option label="自己输入模板" value="raw"/>
+            <el-option label="模板链接" value="url"/>
+            <el-option label="输入模板" value="raw"/>
           </el-select>
         </el-form-item>
         <el-form-item v-show="templateType === 'url'">
@@ -27,7 +40,13 @@ const templateType = ref<"url" | "raw">("url");
         </el-form-item>
       </el-form>
       <div v-show="templateType === 'raw'" class="template-content" style="flex: 1">
-        <el-input type="textarea" placeholder="请输入订阅内容" style="height: 100%" rows="20"></el-input>
+        <MonacoEditor
+            v-model="templateContent"
+            language="json"
+            theme="vs-dark"
+            height="100%"
+            width="100%"
+        />
       </div>
     </div>
     <template #footer>
