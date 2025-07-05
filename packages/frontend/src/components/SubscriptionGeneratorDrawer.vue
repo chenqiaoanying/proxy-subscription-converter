@@ -1,12 +1,33 @@
 <script setup lang="ts">
 import {ref} from "vue";
 import MonacoEditor from '@components/MonacoEditor.vue';
+import * as monaco from "monaco-editor";
+import singboxSchema from "@/schemas/sing-box.schema.json";
+import {useFilterStore} from "@/stores.ts";
+import {storeToRefs} from "pinia";
+
+const filterStore = useFilterStore();
+const filterStoreRefs = storeToRefs(filterStore);
+const filters = filterStoreRefs.filters;
+const selectedFilters = ref<string[]>([]);
 
 const visible = defineModel<boolean>("visible");
 const templateType = ref<"url" | "raw">("url");
 const templateContent = ref("");
 
 const jsonError = ref(undefined as string | undefined)
+
+function onEditorMount() {
+  monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+    validate: true,
+    allowComments: true,
+    schemas: [{
+      uri: 'https://gist.githubusercontent.com/artiga033/fea992d95ad44dc8d024b229223b1002/raw/83c676c1ec9f37af2bce0505da396b5444b30032/sing-box.schema.json',
+      fileMatch: ['*'],
+      schema: singboxSchema
+    }]
+  })
+}
 
 function validateJson() {
   try {
@@ -30,6 +51,20 @@ function validateJson() {
           <el-input placeholder="请输入订阅名称"></el-input>
         </el-form-item>
         <el-form-item>
+          <el-select
+              v-model="selectedFilters"
+              multiple
+              placeholder="Select"
+          >
+            <el-option
+                v-for="item in filters"
+                :key="item.tag"
+                :label="item.tag"
+                :value="item.tag"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
           <el-select v-model="templateType" placeholder="请选择模板类型">
             <el-option label="模板链接" value="url"/>
             <el-option label="输入模板" value="raw"/>
@@ -46,6 +81,7 @@ function validateJson() {
             theme="vs-dark"
             height="100%"
             width="100%"
+            @mounted="onEditorMount"
         />
       </div>
     </div>

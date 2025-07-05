@@ -42,11 +42,19 @@ model Proxy {
 }
 
 model Filter {
-  tag           String    @id
-  subscriptions Subscription[]
-  includeTypes  String?
-  excludeTypes  String?
-  excludeRegex  String?
-  includeRegex  String?
-  createdAt     DateTime  @default(now())
+  tag                     String    @id
+  subscriptions           Subscription[]
+  subscriptionGenerators  SubscriptionGenerator[]
+  includeTypes            String?
+  excludeTypes            String?
+  excludeRegex            String?
+  includeRegex            String?
+  createdAt               DateTime  @default(now())
+}
+
+model SubscriptionGenerator {
+  id            Int       @id @default(autoincrement())
+  content       Json?
+  url           String?
+  filters       Filter[]
 }
