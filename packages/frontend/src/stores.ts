@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia';
-import {SubscriptionSchema, FilterSchema} from "@psc/common";
-import type {Subscription, Filter} from "@psc/common";
+import {SubscriptionSchema, FilterSchema, SubscriptionGeneratorSchema} from "@psc/common";
+import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate} from "@psc/common";
 import {readonly, ref} from "vue";
 import axios from "axios";
 
@@ -17,14 +17,12 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
     async function listSubscriptions() {
         return axios.get("/api/subscription", {responseType: 'json'})
-            .then(response => {
-                return (response.data as any[]).map((item) => SubscriptionSchema.parse(item));
-            })
+            .then(response => (response.data as any[]).map((item) => SubscriptionSchema.parse(item)))
             .catch(axiosErrorMapper);
     }
 
-    async function loadAndSaveProxy(name: string, url: string, userAgent: string): Promise<void> {
-        axios.get("/api/subscription/load-and-save", {responseType: 'json', params: {name, url, userAgent}})
+    async function loadAndSaveProxy(name: string, url: string, userAgent: string) {
+        return axios.get("/api/subscription/load-and-save", {responseType: 'json', params: {name, url, userAgent}})
             .then(response => {
                 const savedSubscriptions = SubscriptionSchema.parse(response.data);
                 subscriptionsRef.value.push(savedSubscriptions);
@@ -52,12 +50,27 @@ export const useFilterStore = defineStore('filter', () => {
             .catch(axiosErrorMapper);
     }
 
-    async function saveFilters(filter: Filter) {
+    async function createFilter(filter: FilterCreateOrUpdate) {
         return axios.post("/api/filter", filter)
             .then(response => {
-                const savedFilters = FilterSchema.parse(response.data);
-                filtersRef.value.push(savedFilters);
-                return savedFilters;
+                const savedFilter = FilterSchema.parse(response.data);
+                filtersRef.value.push(savedFilter);
+                return savedFilter;
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function updateFilter(id: number, filter: FilterCreateOrUpdate) {
+        return axios.put(`/api/filter/${id}`, filter)
+            .then(response => {
+                const savedFilter = FilterSchema.parse(response.data);
+                const toReplaceIndex = filtersRef.value.findIndex(filter => filter.id === filter.id);
+                if (toReplaceIndex >= 0) {
+                    filtersRef.value[toReplaceIndex] = savedFilter;
+                } else {
+                    filtersRef.value.push(savedFilter);
+                }
+                return savedFilter;
             })
             .catch(axiosErrorMapper);
     }
@@ -68,5 +81,65 @@ export const useFilterStore = defineStore('filter', () => {
         return result;
     }
 
-    return {filters: readonly(filtersRef), listFilters, saveFilters, forceReloadFilters};
+    return {filters: readonly(filtersRef), listFilters, createFilter, updateFilter, forceReloadFilters};
 })
+
+export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator', () => {
+    const generatorsRef = ref<SubscriptionGenerator[]>([]);
+
+    async function listGenerators(): Promise<SubscriptionGenerator[]> {
+        return axios.get("/api/subscription-generator", {responseType: 'json'})
+            .then(response => {
+                return (response.data as any[]).map((item) => SubscriptionGeneratorSchema.parse(item));
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function saveGenerator(generator: SubscriptionGenerator) {
+        return axios.post("/api/subscription-generator", generator)
+            .then(response => {
+                const savedGenerator = SubscriptionGeneratorSchema.parse(response.data);
+                generatorsRef.value.push(savedGenerator);
+                return savedGenerator;
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function updateGenerator(generator: SubscriptionGenerator) {
+        return axios.put(`/api/subscription-generator/${generator.id}`, generator)
+            .then(response => {
+                const updatedGenerator = SubscriptionGeneratorSchema.parse(response.data);
+                const index = generatorsRef.value.findIndex(g => g.id === updatedGenerator.id);
+                if (index !== -1) {
+                    generatorsRef.value[index] = updatedGenerator;
+                } else {
+                    generatorsRef.value.push(updatedGenerator);
+                }
+                return updatedGenerator;
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function deleteGenerator(id: string) {
+        return axios.delete(`/api/subscription-generator/${id}`)
+            .then(() => {
+                generatorsRef.value = generatorsRef.value.filter(g => g.id !== id);
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function forceReloadGenerators() {
+        const result = await listGenerators();
+        generatorsRef.value = result;
+        return result;
+    }
+
+    return {
+        generators: readonly(generatorsRef),
+        listGenerators,
+        saveGenerator,
+        updateGenerator,
+        deleteGenerator,
+        forceReloadGenerators
+    };
+});

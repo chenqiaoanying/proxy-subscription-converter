@@ -14,11 +14,7 @@ app.use(express.json());
 // 注册订阅相关路由
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/filter', filterRouter);
-
-// 处理/api请求
-app.get('/api', (_req, res) => {
-  res.send('这是来自/api的响应');
-});
+app.use('/api/subscriptionGenerator', subscriptionRoutes)
 
 // 代理Vue静态文件
 app.use(express.static(path.resolve(process.cwd(), '../frontend/dist')));

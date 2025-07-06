@@ -1,8 +1,10 @@
 import express from 'express';
 import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
-import {FilterSchema} from "@psc/common";
-import type {Filter} from "@psc/common";
+import {FilterCreateOrUpdateSchema} from "@psc/common";
+import type {Filter, FilterCreateOrUpdate} from "@psc/common";
+import FilterCreateInput = Prisma.FilterCreateInput;
+import FilterUpdateInput = Prisma.FilterUpdateInput;
 
 @singleton()
 class FilterController {
@@ -11,8 +13,9 @@ class FilterController {
 
     private toContract(filter: Prisma.FilterGetPayload<{ include: { subscriptions: true } }>) {
         return {
+            id: filter.id,
             tag: filter.tag,
-            subscriptions: filter.subscriptions.map((subscription) => subscription.name),
+            subscriptionIds: filter.subscriptions.map((subscription) => subscription.id),
             includeTypes: filter.includeTypes?.split(',')?.filter((type) => type.length > 0),
             excludeTypes: filter.excludeTypes?.split(',')?.filter((type) => type.length > 0),
             includePattern: filter.includeRegex,
@@ -20,36 +23,48 @@ class FilterController {
         } as Filter;
     }
 
-    private async save(filter: Filter) {
-        const updateFields = {
+    private save = async (filterId: number | undefined, filter: FilterCreateOrUpdate) => {
+        const mainTableUpsertInput: FilterCreateInput & FilterUpdateInput = {
+            tag: filter.tag,
             includeTypes: filter.includeTypes?.join(),
             excludeTypes: filter.excludeTypes?.join(),
             excludeRegex: filter.excludePattern,
             includeRegex: filter.includePattern,
         }
-        return this.prisma.filter.upsert({
-            where: {tag: filter.tag},
-            create: {
-                tag: filter.tag,
-                ...updateFields
-            },
-            update: updateFields
-        });
+        if (filterId)
+            return this.prisma.filter.update({
+                where: {id: filterId},
+                data: {
+                    ...mainTableUpsertInput,
+                    subscriptions: {
+                        set: filter.subscriptionIds?.map((id) => ({id})) ?? []
+                    }
+                },
+            });
+        else
+            return this.prisma.filter.create({
+                data: {
+                    ...mainTableUpsertInput,
+                    subscriptions: {
+                        connect: filter.subscriptionIds?.map((id) => ({id})) ?? []
+                    }
+                }
+            });
     }
 
     // 创建 Filter
     createFilter = async (req: express.Request, res: express.Response) => {
-        const requestFilter = FilterSchema.parse(req.body);
-        await this.save(requestFilter);
-        res.status(201).json(requestFilter);
+        const requestFilter = FilterCreateOrUpdateSchema.parse(req.body);
+        const savedFilterEntity = await this.save(undefined, requestFilter);
+        res.status(201).json({id: savedFilterEntity.id, ...requestFilter});
     }
 
     // 更新 Filter
     updateFilter = async (req: express.Request, res: express.Response) => {
-        const {tag} = req.params;
-        const requestFilter = FilterSchema.parse({tag, ...req.body});
-        await this.save(requestFilter);
-        res.json(requestFilter);
+        const {id} = req.params;
+        const requestFilter = FilterCreateOrUpdateSchema.parse(req.body);
+        await this.save(Number(id), requestFilter);
+        res.json({id: Number(id), ...requestFilter});
     }
 
     // 获取所有 Filter
@@ -76,9 +91,9 @@ class FilterController {
 
     // 删除 Filter
     deleteFilter = async (req: express.Request, res: express.Response) => {
-        const {tag} = req.params;
+        const {id} = req.params;
         await this.prisma.filter.delete({
-            where: {tag}
+            where: {id: Number(id)}
         });
 
         res.status(204).end();

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref} from "vue";
+import {reactive, ref} from "vue";
 import MonacoEditor from '@components/MonacoEditor.vue';
 import * as monaco from "monaco-editor";
 import singboxSchema from "@/schemas/sing-box.schema.json";
@@ -9,7 +9,12 @@ import {storeToRefs} from "pinia";
 const filterStore = useFilterStore();
 const filterStoreRefs = storeToRefs(filterStore);
 const filters = filterStoreRefs.filters;
-const selectedFilters = ref<string[]>([]);
+// const selectedFilters = ref<DeepReadonly<Filter>[]>([]);
+
+const subscriptionGenerator = reactive({
+  name: "",
+  filterIds: [] as number[],
+})
 
 const visible = defineModel<boolean>("visible");
 const templateType = ref<"url" | "raw">("url");
@@ -52,15 +57,15 @@ function validateJson() {
         </el-form-item>
         <el-form-item>
           <el-select
-              v-model="selectedFilters"
+              v-model="subscriptionGenerator.filterIds"
               multiple
               placeholder="Select"
           >
             <el-option
                 v-for="item in filters"
-                :key="item.tag"
+                :key="item.id"
                 :label="item.tag"
-                :value="item.tag"
+                :value="item.id"
             />
           </el-select>
         </el-form-item>

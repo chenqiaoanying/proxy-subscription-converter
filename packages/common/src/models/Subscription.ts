@@ -26,6 +26,7 @@ export const DataUsageSchema = z.object({
 });
 
 export const SubscriptionSchema = z.object({
+    id: z.number(),
     name: z.string(),
     url: z.url(),
     dataUsage: DataUsageSchema.optional(),
@@ -33,8 +34,12 @@ export const SubscriptionSchema = z.object({
     proxies: z.array(ProxySchema)
 });
 
+export const SubscriptionCreateSchema = SubscriptionSchema.omit({id: true});
+
 export type Proxy = z.infer<typeof ProxySchema>;
 
 export type DataUsage = z.infer<typeof DataUsageSchema>;
 
 export type Subscription = z.infer<typeof SubscriptionSchema>;
+
+export type SubscriptionCreate = z.infer<typeof SubscriptionCreateSchema>;

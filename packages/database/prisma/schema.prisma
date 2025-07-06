@@ -19,7 +19,8 @@ datasource db {
 }
 
 model Subscription {
-  name          String   @id
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
   url           String
   userAgent     String?
   dataUpload    BigInt?
@@ -34,15 +35,16 @@ model Subscription {
 
 model Proxy {
   id                Int           @id @default(autoincrement())
-  tag               String        @unique
+  tag               String
   type              String
-  subscriptionName  String
-  subscription      Subscription  @relation(fields: [subscriptionName], references: [name])
+  subscriptionId    Int
+  subscription      Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   raw               Json
 }
 
 model Filter {
-  tag                     String    @id
+  id                      Int       @id @default(autoincrement())
+  tag                     String    @unique
   subscriptions           Subscription[]
   subscriptionGenerators  SubscriptionGenerator[]
   includeTypes            String?
@@ -54,6 +56,8 @@ model Filter {
 
 model SubscriptionGenerator {
   id            Int       @id @default(autoincrement())
+  name          String    @unique
+  type          String
   content       Json?
   url           String?
   filters       Filter[]

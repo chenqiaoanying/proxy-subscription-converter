@@ -13,6 +13,7 @@ function onConfirm() {
     ElMessage.error('请输入订阅链接');
     return;
   }
+  console.log(url.value);
   useSubscriptionStore().loadAndSaveProxy(name.value, url.value, userAgent.value)
       .then(() => dialogVisible.value = false)
       .catch((err: Error) => {

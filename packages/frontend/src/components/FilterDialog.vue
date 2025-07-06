@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {computed, reactive, ref} from 'vue';
-import type {Proxy, Filter} from '@psc/common';
-import {FilterSchema} from "@psc/common";
+import {computed, type DeepReadonly, reactive, ref} from 'vue';
+import type {Filter, Subscription} from '@psc/common';
+import {FilterCreateOrUpdateSchema} from "@psc/common";
 import {useSubscriptionStore, useFilterStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 import {ElMessage} from "element-plus";
@@ -9,26 +9,22 @@ import {ElMessage} from "element-plus";
 const props = defineProps<{
   toUpdateFilter?: Filter,
 }>()
-
 const subscriptionStore = useSubscriptionStore();
 const subscriptionStoreRefs = storeToRefs(subscriptionStore);
-const filterStore = useFilterStore();
+const subscriptions = subscriptionStoreRefs.subscriptions;
+const subscriptionsById = computed(() => subscriptions.value.reduce((map, subscription) => {
+  map.set(subscription.id, subscription);
+  return map;
+}, new Map<number, DeepReadonly<Subscription>>))
 
+const filterStore = useFilterStore();
 const selectAllSubscriptions = ref(true)
 const selectAllTypes = ref(true)
-
-const proxiesBySubscriptions = computed(() => {
-  const map = new Map<string, Readonly<Proxy[]>>();
-  subscriptionStoreRefs.subscriptions.value.forEach((subscription) => {
-    map.set(subscription.name, subscription.proxies);
-  })
-  return map;
-})
 
 const dialogVisible = defineModel<boolean>("dialogVisible");
 const filter = reactive({
   tag: "",
-  subscriptions: [] as string[],
+  subscriptions: [] as DeepReadonly<Subscription>[],
   includeTypes: [] as string[],
   includePattern: undefined as string | undefined,
   excludePattern: undefined as string | undefined,
@@ -36,15 +32,10 @@ const filter = reactive({
 
 const supportedTypes = computed(() => {
   const types = new Set<string>()
-  const selectedSubscriptions = selectAllSubscriptions ? Array.from(proxiesBySubscriptions.value.keys()) : filter.subscriptions;
-  selectedSubscriptions.map(name => proxiesBySubscriptions.value.get(name))
-      .forEach(proxies => {
-        if (proxies) {
-          proxies.filter(proxy => !["selector", "urltest", "direct", "dns", "block"].includes(proxy.type))
-              .forEach(proxy => {
-                types.add(proxy.type)
-              })
-        }
+  const selectedSubscriptions = selectAllSubscriptions ? subscriptions.value : filter.subscriptions;
+  selectedSubscriptions.flatMap(subscription => subscription.proxies)
+      .forEach(proxy => {
+        if (!["selector", "urltest", "direct", "dns", "block"].includes(proxy.type)) types.add(proxy.type)
       });
   return types;
 });
@@ -54,11 +45,16 @@ function onConfirm() {
     ElMessage.error('请输入名称');
     return;
   }
+  const toSaveFilter = FilterCreateOrUpdateSchema.parse({
+    tag: filter.tag,
+    subscriptionIds: filter.subscriptions.map(subscription => subscription.id),
+    includeTypes: filter.includeTypes,
+    includePattern: filter.includePattern,
+    excludePattern: filter.excludePattern,
+  })
 
-  filterStore.saveFilters(FilterSchema.parse(filter))
-      .then(() => {
-        dialogVisible.value = false;
-      })
+  const update = props.toUpdateFilter ? filterStore.updateFilter(props.toUpdateFilter.id, toSaveFilter) : filterStore.createFilter(toSaveFilter);
+  update.then(() => dialogVisible.value = false)
       .catch((err) => {
         ElMessage.error(err.message);
       })
@@ -66,11 +62,15 @@ function onConfirm() {
 }
 
 function onOpen() {
-  filter.tag = props.toUpdateFilter?.tag || "";
-  filter.subscriptions = props.toUpdateFilter?.subscriptions || [];
-  filter.includeTypes = props.toUpdateFilter?.includeTypes || [];
-  filter.includePattern = props.toUpdateFilter?.includePattern || undefined;
-  filter.excludePattern = props.toUpdateFilter?.excludePattern || undefined;
+  if (props.toUpdateFilter) {
+    filter.tag = props.toUpdateFilter.tag;
+    filter.subscriptions = props.toUpdateFilter.subscriptionIds?.map((id) => subscriptionsById.value.get(id)!) ?? [];
+    filter.includeTypes = props.toUpdateFilter.includeTypes || [];
+    filter.includePattern = props.toUpdateFilter.includePattern || undefined;
+    filter.excludePattern = props.toUpdateFilter.excludePattern || undefined;
+    selectAllSubscriptions.value = (props.toUpdateFilter.subscriptionIds?.length ?? 0) == 0;
+    selectAllTypes.value = (props.toUpdateFilter.includeTypes?.length ?? 0) == 0;
+  }
 }
 
 </script>
@@ -83,7 +83,7 @@ function onOpen() {
       <el-form-item label="订阅">
         <el-checkbox v-show="filter.subscriptions?.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>
         <el-checkbox-group v-show="!selectAllSubscriptions" v-model="filter.subscriptions">
-          <el-checkbox v-for="name in proxiesBySubscriptions.keys()" :label="name" :value="name" :key="name"/>
+          <el-checkbox v-for="subscription in subscriptions" :label="subscription.name" :value="subscription"/>
         </el-checkbox-group>
       </el-form-item>
       <el-form-item v-show="supportedTypes.size > 0" label="代理类型">
