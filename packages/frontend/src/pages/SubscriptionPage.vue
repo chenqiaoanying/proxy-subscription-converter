@@ -23,7 +23,6 @@ onMounted(() => {
   </el-row>
   <el-divider/>
   <el-row>
-    <!--卡片列表，每个卡片显示一个订阅链接，点击卡片可以查看订阅内容-->
     <el-card v-for="item in subscriptions">
       <template #header>
           <span>{{ item.name }}</span>

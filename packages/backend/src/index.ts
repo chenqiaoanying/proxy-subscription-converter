@@ -2,8 +2,9 @@ import 'reflect-metadata';
 import express from 'express';
 import path from 'path';
 import './registry.js';
-import subscriptionRoutes from './routes/subscriptionRoutes.js';
+import subscriptionRouter from './routes/subscriptionRouter.js';
 import filterRouter from './routes/filterRouter.js';
+import subscriptionGeneratorRouter from "./routes/subscriptionGeneratorRouter.js";
 import {KnownError} from "./errors/KnownError.js";
 import {z, ZodError} from "zod/v4";
 const app = express();
@@ -12,9 +13,9 @@ const port = 3000;
 app.use(express.json());
 
 // 注册订阅相关路由
-app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/subscription', subscriptionRouter);
 app.use('/api/filter', filterRouter);
-app.use('/api/subscriptionGenerator', subscriptionRoutes)
+app.use('/api/subscription-generator', subscriptionGeneratorRouter)
 
 // 代理Vue静态文件
 app.use(express.static(path.resolve(process.cwd(), '../frontend/dist')));

@@ -1,26 +1,32 @@
 <script setup lang="ts">
-import {reactive, ref} from "vue";
+import {reactive} from "vue";
 import MonacoEditor from '@components/MonacoEditor.vue';
 import * as monaco from "monaco-editor";
 import singboxSchema from "@/schemas/sing-box.schema.json";
-import {useFilterStore} from "@/stores.ts";
+import {useFilterStore, useSubscriptionGeneratorStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
+import {ElMessage} from "element-plus";
+import type {SubscriptionGenerator} from "@psc/common";
+import {SubscriptionGeneratorCreateOrUpdateSchema} from "@psc/common";
 
 const filterStore = useFilterStore();
 const filterStoreRefs = storeToRefs(filterStore);
 const filters = filterStoreRefs.filters;
-// const selectedFilters = ref<DeepReadonly<Filter>[]>([]);
+const subscriptionGeneratorStore = useSubscriptionGeneratorStore();
+
+const {toUpdateSubscriptionGenerator = undefined} = defineProps<{
+  toUpdateSubscriptionGenerator?: SubscriptionGenerator,
+}>();
 
 const subscriptionGenerator = reactive({
   name: "",
-  filterIds: [] as number[],
+  filterIds: [] as number[] | undefined,
+  type: "url",
+  url: undefined as string | undefined,
+  content: undefined as string | undefined,
 })
 
 const visible = defineModel<boolean>("visible");
-const templateType = ref<"url" | "raw">("url");
-const templateContent = ref("");
-
-const jsonError = ref(undefined as string | undefined)
 
 function onEditorMount() {
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
@@ -34,26 +40,63 @@ function onEditorMount() {
   })
 }
 
-function validateJson() {
-  try {
-    JSON.parse(templateContent.value);
-    jsonError.value = undefined;
-  } catch (e) {
-    jsonError.value = `无效的JSON:${getErrorMessage(e)}`
+function onOpen() {
+  if (toUpdateSubscriptionGenerator) {
+    subscriptionGenerator.name = toUpdateSubscriptionGenerator.name;
+    subscriptionGenerator.filterIds = toUpdateSubscriptionGenerator.filterIds;
+    subscriptionGenerator.type = toUpdateSubscriptionGenerator.type;
+    switch (toUpdateSubscriptionGenerator.type) {
+      case "url":
+        subscriptionGenerator.url = toUpdateSubscriptionGenerator.url;
+        break;
+      case "json":
+        subscriptionGenerator.content = toUpdateSubscriptionGenerator.content;
+        break;
+    }
   }
+}
+
+function validateJson() {
+  if (subscriptionGenerator.content) {
+    try {
+      JSON.parse(subscriptionGenerator.content);
+    } catch (e) {
+      ElMessage.error(`无效的JSON:${getErrorMessage(e)}`)
+    }
+  } else {
+    ElMessage.error("请输入JSON内容")
+  }
+}
+
+function onConfirm() {
+  if (subscriptionGenerator.type === "json") {
+    validateJson();
+  }
+
+  const {data, error, success} = SubscriptionGeneratorCreateOrUpdateSchema.safeParse(subscriptionGenerator)
+  if (!success) {
+    debugger
+    ElMessage.error(error.message);
+    return;
+  }
+  const update = toUpdateSubscriptionGenerator ? subscriptionGeneratorStore.updateGenerator(toUpdateSubscriptionGenerator.id, data) : subscriptionGeneratorStore.createGenerator(data);
+  update.then(() => visible.value = false)
+      .catch((err) => {
+        ElMessage.error(err.message);
+      })
 }
 
 </script>
 
 <template>
-  <el-drawer title="订阅内容" v-model="visible">
+  <el-drawer title="订阅内容" v-model="visible" @open="onOpen">
     <template #header>
       <el-text>订阅内容</el-text>
     </template>
     <div class="drawer-content" style="display: flex; flex-direction: column; height: 100%">
       <el-form>
         <el-form-item>
-          <el-input placeholder="请输入订阅名称"></el-input>
+          <el-input placeholder="请输入订阅名称" v-model="subscriptionGenerator.name"/>
         </el-form-item>
         <el-form-item>
           <el-select
@@ -70,18 +113,18 @@ function validateJson() {
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-select v-model="templateType" placeholder="请选择模板类型">
+          <el-select v-model="subscriptionGenerator.type" placeholder="请选择模板类型">
             <el-option label="模板链接" value="url"/>
-            <el-option label="输入模板" value="raw"/>
+            <el-option label="输入模板" value="json"/>
           </el-select>
         </el-form-item>
-        <el-form-item v-show="templateType === 'url'">
+        <el-form-item v-show="subscriptionGenerator.type === 'url'">
           <el-input placeholder="请输入模板链接"></el-input>
         </el-form-item>
       </el-form>
-      <div v-show="templateType === 'raw'" class="template-content" style="flex: 1">
+      <div v-show="subscriptionGenerator.type === 'json'" class="template-content" style="flex: 1">
         <MonacoEditor
-            v-model="templateContent"
+            v-model="subscriptionGenerator.content"
             language="json"
             theme="vs-dark"
             height="100%"
@@ -92,7 +135,7 @@ function validateJson() {
     </div>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="visible = false">确 定</el-button>
+        <el-button type="primary" @click="onConfirm">确 定</el-button>
       </div>
     </template>
   </el-drawer>

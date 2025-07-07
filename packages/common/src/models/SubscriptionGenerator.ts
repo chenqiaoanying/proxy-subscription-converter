@@ -6,26 +6,42 @@ const Base = {
     filterIds: z.array(z.number()).optional(),
 };
 
-const Json = {
+const Json = z.object({
+    ...Base,
     type: z.literal("json"),
-    content: z.json(),
-};
+    content: z.union([z.json(), z.string()]).transform((val, ctx) => {
+        try {
+            switch (typeof val) {
+                case "object":
+                    return val;
+                case "string":
+                    return JSON.parse(val);
+            }
+        } catch (err) {
+            ctx.addIssue({
+                code: "custom",
+                message: "Invalid JSON",
+                input: val,
+            })
+        }
+    }),
+});
 
-const Url = {
+const Url = z.object({
+    ...Base,
     type: z.literal("url"),
-    url: z.string().nonempty(),
-};
+    url: z.url(),
+});
 
 export const SubscriptionGeneratorSchema = z.discriminatedUnion("type", [
-    z.object({...Base, ...Json}),
-    z.object({...Base, ...Url}),
+    Json, Url,
 ]);
 
-export const SubscriptionGeneratorCreateSchema = z.discriminatedUnion("type", [
-    z.object({...Base, ...Json}).omit({id: true}),
-    z.object({...Base, ...Url}).omit({id: true}),
+export const SubscriptionGeneratorCreateOrUpdateSchema = z.discriminatedUnion("type", [
+    Json.omit({id: true}),
+    Url.omit({id: true}),
 ]);
 
 export type SubscriptionGenerator = z.infer<typeof SubscriptionGeneratorSchema>;
 
-export type SubscriptionGeneratorCreate = z.infer<typeof SubscriptionGeneratorCreateSchema>;
+export type SubscriptionGeneratorCreateOrUpdate = z.input<typeof SubscriptionGeneratorCreateOrUpdateSchema>;

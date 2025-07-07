@@ -1,8 +1,8 @@
 import express from 'express';
 import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
-import {SubscriptionGeneratorSchema} from "@psc/common";
-import type {SubscriptionGenerator, SubscriptionGeneratorCreate} from "@psc/common";
+import * as common from "@psc/common";
+import type {SubscriptionGeneratorCreateOrUpdate} from "@psc/common";
 import SubscriptionGeneratorCreateInput = Prisma.SubscriptionGeneratorCreateInput;
 import SubscriptionGeneratorUpdateInput = Prisma.SubscriptionGeneratorUpdateInput;
 import SubscriptionGeneratorGetPayload = Prisma.SubscriptionGeneratorGetPayload;
@@ -13,7 +13,7 @@ class SubscriptionGeneratorController {
     }
 
     private toContract(generatorEntity: SubscriptionGeneratorGetPayload<{ include: { filters: true } }>) {
-        return SubscriptionGeneratorSchema.parse({
+        return common.SubscriptionGeneratorSchema.parse({
             id: generatorEntity.id,
             name: generatorEntity.name,
             type: generatorEntity.type,
@@ -23,16 +23,16 @@ class SubscriptionGeneratorController {
         });
     }
 
-    private save = async (generator: SubscriptionGenerator | SubscriptionGeneratorCreate) => {
+    private save = async (id: number | undefined, generator: SubscriptionGeneratorCreateOrUpdate) => {
         const mainTableUpsertInput: SubscriptionGeneratorCreateInput & SubscriptionGeneratorUpdateInput = {
             name: generator.name,
             type: generator.type,
             content: generator.type === "json" ? JSON.stringify(generator.content) : undefined,
             url: generator.type === "url" ? generator.url : undefined,
         };
-        if ("id" in generator) {
-            this.prisma.subscriptionGenerator.update({
-                where: {id: generator.id},
+        if (id) {
+            return this.prisma.subscriptionGenerator.update({
+                where: {id},
                 data: {
                     ...mainTableUpsertInput,
                     filters: {
@@ -43,7 +43,7 @@ class SubscriptionGeneratorController {
                 }
             });
         } else {
-            this.prisma.subscriptionGenerator.create({
+            return this.prisma.subscriptionGenerator.create({
                 data: {
                     ...mainTableUpsertInput,
                     filters: {
@@ -58,15 +58,17 @@ class SubscriptionGeneratorController {
 
     // 创建 SubscriptionGenerator
     createSubscriptionGenerator = async (req: express.Request, res: express.Response) => {
-        const requestGenerator = SubscriptionGeneratorSchema.parse(req.body);
-        res.status(201).json(requestGenerator);
+        const requestGenerator = common.SubscriptionGeneratorCreateOrUpdateSchema.parse(req.body);
+        const savedRequestGeneratorEntity = await this.save(undefined, requestGenerator);
+        res.status(201).json({id: savedRequestGeneratorEntity.id, ...requestGenerator});
     }
 
     // 更新 SubscriptionGenerator
     updateSubscriptionGenerator = async (req: express.Request, res: express.Response) => {
-        const {id} = req.params;
-        const requestGenerator = SubscriptionGeneratorSchema.parse({id, ...req.body});
-        await this.save(requestGenerator);
+        const {requestId} = req.params;
+        const id = common.SubscriptionSchema.shape.id.parse(requestId);
+        const requestGenerator = common.SubscriptionGeneratorSchema.parse({id, ...req.body});
+        await this.save(id, requestGenerator);
         res.json(requestGenerator);
     }
 

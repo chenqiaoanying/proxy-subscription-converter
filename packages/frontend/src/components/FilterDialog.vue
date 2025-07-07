@@ -6,7 +6,7 @@ import {useSubscriptionStore, useFilterStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 import {ElMessage} from "element-plus";
 
-const props = defineProps<{
+const {toUpdateFilter = undefined} = defineProps<{
   toUpdateFilter?: Filter,
 }>()
 const subscriptionStore = useSubscriptionStore();
@@ -53,7 +53,7 @@ function onConfirm() {
     excludePattern: filter.excludePattern,
   })
 
-  const update = props.toUpdateFilter ? filterStore.updateFilter(props.toUpdateFilter.id, toSaveFilter) : filterStore.createFilter(toSaveFilter);
+  const update = toUpdateFilter ? filterStore.updateFilter(toUpdateFilter.id, toSaveFilter) : filterStore.createFilter(toSaveFilter);
   update.then(() => dialogVisible.value = false)
       .catch((err) => {
         ElMessage.error(err.message);
@@ -62,23 +62,23 @@ function onConfirm() {
 }
 
 function onOpen() {
-  if (props.toUpdateFilter) {
-    filter.tag = props.toUpdateFilter.tag;
-    filter.subscriptions = props.toUpdateFilter.subscriptionIds?.map((id) => subscriptionsById.value.get(id)!) ?? [];
-    filter.includeTypes = props.toUpdateFilter.includeTypes || [];
-    filter.includePattern = props.toUpdateFilter.includePattern || undefined;
-    filter.excludePattern = props.toUpdateFilter.excludePattern || undefined;
-    selectAllSubscriptions.value = (props.toUpdateFilter.subscriptionIds?.length ?? 0) == 0;
-    selectAllTypes.value = (props.toUpdateFilter.includeTypes?.length ?? 0) == 0;
+  if (toUpdateFilter) {
+    filter.tag = toUpdateFilter.tag;
+    filter.subscriptions = toUpdateFilter.subscriptionIds?.map((id) => subscriptionsById.value.get(id)!) ?? [];
+    filter.includeTypes = toUpdateFilter.includeTypes || [];
+    filter.includePattern = toUpdateFilter.includePattern || undefined;
+    filter.excludePattern = toUpdateFilter.excludePattern || undefined;
+    selectAllSubscriptions.value = (toUpdateFilter.subscriptionIds?.length ?? 0) == 0;
+    selectAllTypes.value = (toUpdateFilter.includeTypes?.length ?? 0) == 0;
   }
 }
 
 </script>
 <template>
-  <el-dialog :title='props.toUpdateFilter ? "编辑过滤器": "添加过滤器"' v-model="dialogVisible" @open="onOpen">
+  <el-dialog :title='toUpdateFilter ? "编辑过滤器": "添加过滤器"' v-model="dialogVisible" @open="onOpen">
     <el-form :model="filter" label-width="100px">
       <el-form-item label="名称">
-        <el-input v-model="filter.tag" placeholder="请输入名称" :disabled="props.toUpdateFilter != undefined"></el-input>
+        <el-input v-model="filter.tag" placeholder="请输入名称" :disabled="toUpdateFilter != undefined"></el-input>
       </el-form-item>
       <el-form-item label="订阅">
         <el-checkbox v-show="filter.subscriptions?.length == 0" v-model="selectAllSubscriptions" label="所有订阅" style="width: 100%"/>

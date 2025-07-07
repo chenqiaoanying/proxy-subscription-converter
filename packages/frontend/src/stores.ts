@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia';
 import {SubscriptionSchema, FilterSchema, SubscriptionGeneratorSchema} from "@psc/common";
-import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate} from "@psc/common";
+import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate, SubscriptionGeneratorCreateOrUpdate} from "@psc/common";
 import {readonly, ref} from "vue";
 import axios from "axios";
 
@@ -95,7 +95,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
             .catch(axiosErrorMapper);
     }
 
-    async function saveGenerator(generator: SubscriptionGenerator) {
+    async function createGenerator(generator: SubscriptionGeneratorCreateOrUpdate) {
         return axios.post("/api/subscription-generator", generator)
             .then(response => {
                 const savedGenerator = SubscriptionGeneratorSchema.parse(response.data);
@@ -105,8 +105,8 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
             .catch(axiosErrorMapper);
     }
 
-    async function updateGenerator(generator: SubscriptionGenerator) {
-        return axios.put(`/api/subscription-generator/${generator.id}`, generator)
+    async function updateGenerator(id: number, generator: SubscriptionGeneratorCreateOrUpdate) {
+        return axios.put(`/api/subscription-generator/${id}`, generator)
             .then(response => {
                 const updatedGenerator = SubscriptionGeneratorSchema.parse(response.data);
                 const index = generatorsRef.value.findIndex(g => g.id === updatedGenerator.id);
@@ -120,7 +120,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
             .catch(axiosErrorMapper);
     }
 
-    async function deleteGenerator(id: string) {
+    async function deleteGenerator(id: number) {
         return axios.delete(`/api/subscription-generator/${id}`)
             .then(() => {
                 generatorsRef.value = generatorsRef.value.filter(g => g.id !== id);
@@ -137,7 +137,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
     return {
         generators: readonly(generatorsRef),
         listGenerators,
-        saveGenerator,
+        createGenerator,
         updateGenerator,
         deleteGenerator,
         forceReloadGenerators

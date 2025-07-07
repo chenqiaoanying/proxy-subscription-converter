@@ -14,4 +14,4 @@ export const FilterSchema = z.object({
 export const FilterCreateOrUpdateSchema = FilterSchema.omit({id: true});
 
 export type Filter = z.infer<typeof FilterSchema>;
-export type FilterCreateOrUpdate = z.infer<typeof FilterCreateOrUpdateSchema>;
+export type FilterCreateOrUpdate = z.input<typeof FilterCreateOrUpdateSchema>;
