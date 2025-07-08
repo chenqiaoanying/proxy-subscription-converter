@@ -32,6 +32,7 @@ const selectedGenerator = ref<DeepReadonly<SubscriptionGenerator> | undefined>(u
       </template>
       <template #footer>
         <el-button @click="selectedGenerator = item; drawerVisible = true" type="primary">编辑</el-button>
+        <el-button @click="subscriptionGeneratorStore.generate(item.id)" type="primary">预览</el-button>
       </template>
     </el-card>
   </el-row>

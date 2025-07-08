@@ -18,4 +18,6 @@ router.put('/:id', subscriptionGeneratorController.updateSubscriptionGenerator);
 // 删除 SubscriptionGenerator
 router.delete('/:id', subscriptionGeneratorController.deleteSubscriptionGenerator);
 
+router.get('/generate/:id', subscriptionGeneratorController.generate);
+
 export default router;

@@ -128,6 +128,14 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
             .catch(axiosErrorMapper);
     }
 
+    async function generate(id: number) {
+        return axios.get(`/api/subscription-generator/generate/${id}`)
+            .then(res => {
+                return res.data;
+            })
+            .catch(axiosErrorMapper);
+    }
+
     async function forceReloadGenerators() {
         const result = await listGenerators();
         generatorsRef.value = result;
@@ -140,6 +148,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
         createGenerator,
         updateGenerator,
         deleteGenerator,
-        forceReloadGenerators
+        forceReloadGenerators,
+        generate
     };
 });

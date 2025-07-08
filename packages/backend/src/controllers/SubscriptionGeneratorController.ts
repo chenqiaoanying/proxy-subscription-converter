@@ -7,6 +7,7 @@ import SubscriptionGeneratorCreateInput = Prisma.SubscriptionGeneratorCreateInpu
 import SubscriptionGeneratorUpdateInput = Prisma.SubscriptionGeneratorUpdateInput;
 import SubscriptionGeneratorGetPayload = Prisma.SubscriptionGeneratorGetPayload;
 import {KnownError} from "../errors/KnownError.js";
+import axios from "axios";
 
 @singleton()
 class SubscriptionGeneratorController {
@@ -70,7 +71,7 @@ class SubscriptionGeneratorController {
         if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
         const requestGenerator = common.SubscriptionGeneratorCreateOrUpdateSchema.parse(req.body);
         await this.save(id, requestGenerator);
-        res.json(requestGenerator);
+        res.json({id, ...requestGenerator});
     }
 
     // 获取所有 SubscriptionGenerator
@@ -104,6 +105,63 @@ class SubscriptionGeneratorController {
         });
 
         res.status(204).end();
+    }
+
+    generate = async (req: express.Request, res: express.Response) => {
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
+        const generator = await this.prisma.subscriptionGenerator.findUnique({
+            where: {id: Number(id)},
+            include: {
+                filters: {
+                    include: {
+                        subscriptions: {
+                            include: {proxies: true}
+                        }
+                    }
+                }
+            }
+        })
+        if (!generator) {
+            res.status(404).json({error: 'SubscriptionGenerator not found'});
+            return;
+        }
+        const subscriptionGenerator = this.toContract(generator);
+        let content: any;
+        switch (subscriptionGenerator.type) {
+            case "json":
+                content = subscriptionGenerator.content;
+                break;
+            case "url":
+                content = await axios.get(subscriptionGenerator.url, {responseType: "json"}).then((res) => res.data);
+                break;
+        }
+        if (!content) {
+            res.status(404).json({error: 'Fail to load subscriptionGenerator content'});
+            return;
+        }
+        const outbounds = content.outbounds as any[] || [];
+        generator.filters.map(filter => {
+            const {tag, subscriptions, includeTypes, includeRegex, excludeRegex} = filter;
+            const parsedIncludeTypes = includeTypes?.toLowerCase()?.split(",")?.filter(type => type.length > 0) ?? [];
+            const parsedIncludeRegex = includeRegex && includeRegex.length > 0 ? new RegExp(includeRegex) : null;
+            const parsedExcludeRegex = excludeRegex && excludeRegex.length > 0 ? new RegExp(excludeRegex) : null;
+            const selectedProxies = subscriptions.flatMap(subscription =>
+                subscription.proxies
+                    .filter(proxy => {
+                        if (parsedIncludeTypes.length > 0 && !parsedIncludeTypes.includes(proxy.type.toLowerCase())) return false;
+                        if (parsedIncludeRegex && !parsedIncludeRegex.test(proxy.tag)) return false;
+                        if (parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag)) return false;
+                        return true;
+                    })
+                    .map(proxy => proxy.raw?.valueOf())
+            )
+            outbounds.push({
+                tag, type: "selector", outbounds: selectedProxies,
+            })
+        })
+        res.status(200).send({...content, outbounds});
+
     }
 }
 
