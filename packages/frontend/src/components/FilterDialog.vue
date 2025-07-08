@@ -70,6 +70,14 @@ function onOpen() {
     filter.excludePattern = toUpdateFilter.excludePattern || undefined;
     selectAllSubscriptions.value = (toUpdateFilter.subscriptionIds?.length ?? 0) == 0;
     selectAllTypes.value = (toUpdateFilter.includeTypes?.length ?? 0) == 0;
+  } else {
+    filter.tag = "";
+    filter.subscriptions = [];
+    filter.includeTypes = [];
+    filter.includePattern = undefined;
+    filter.excludePattern = undefined;
+    selectAllSubscriptions.value = true;
+    selectAllTypes.value = true;
   }
 }
 

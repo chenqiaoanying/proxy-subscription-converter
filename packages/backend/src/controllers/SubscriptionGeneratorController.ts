@@ -6,6 +6,7 @@ import type {SubscriptionGeneratorCreateOrUpdate} from "@psc/common";
 import SubscriptionGeneratorCreateInput = Prisma.SubscriptionGeneratorCreateInput;
 import SubscriptionGeneratorUpdateInput = Prisma.SubscriptionGeneratorUpdateInput;
 import SubscriptionGeneratorGetPayload = Prisma.SubscriptionGeneratorGetPayload;
+import {KnownError} from "../errors/KnownError.js";
 
 @singleton()
 class SubscriptionGeneratorController {
@@ -65,9 +66,9 @@ class SubscriptionGeneratorController {
 
     // 更新 SubscriptionGenerator
     updateSubscriptionGenerator = async (req: express.Request, res: express.Response) => {
-        const {requestId} = req.params;
-        const id = common.SubscriptionSchema.shape.id.parse(requestId);
-        const requestGenerator = common.SubscriptionGeneratorSchema.parse({id, ...req.body});
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
+        const requestGenerator = common.SubscriptionGeneratorCreateOrUpdateSchema.parse(req.body);
         await this.save(id, requestGenerator);
         res.json(requestGenerator);
     }

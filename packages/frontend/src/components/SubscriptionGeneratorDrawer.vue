@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {reactive} from "vue";
+import {type DeepReadonly, reactive} from "vue";
 import MonacoEditor from '@components/MonacoEditor.vue';
 import * as monaco from "monaco-editor";
 import singboxSchema from "@/schemas/sing-box.schema.json";
@@ -15,15 +15,15 @@ const filters = filterStoreRefs.filters;
 const subscriptionGeneratorStore = useSubscriptionGeneratorStore();
 
 const {toUpdateSubscriptionGenerator = undefined} = defineProps<{
-  toUpdateSubscriptionGenerator?: SubscriptionGenerator,
+  toUpdateSubscriptionGenerator?: DeepReadonly<SubscriptionGenerator>,
 }>();
 
 const subscriptionGenerator = reactive({
   name: "",
-  filterIds: [] as number[] | undefined,
+  filterIds: [] as number[],
   type: "url",
-  url: undefined as string | undefined,
-  content: undefined as string | undefined,
+  url: "",
+  content: "",
 })
 
 const visible = defineModel<boolean>("visible");
@@ -43,16 +43,24 @@ function onEditorMount() {
 function onOpen() {
   if (toUpdateSubscriptionGenerator) {
     subscriptionGenerator.name = toUpdateSubscriptionGenerator.name;
-    subscriptionGenerator.filterIds = toUpdateSubscriptionGenerator.filterIds;
+    subscriptionGenerator.filterIds = toUpdateSubscriptionGenerator.filterIds.map((id) => id);
     subscriptionGenerator.type = toUpdateSubscriptionGenerator.type;
     switch (toUpdateSubscriptionGenerator.type) {
       case "url":
         subscriptionGenerator.url = toUpdateSubscriptionGenerator.url;
+        subscriptionGenerator.content = "";
         break;
       case "json":
-        subscriptionGenerator.content = toUpdateSubscriptionGenerator.content;
+        subscriptionGenerator.url = "";
+        subscriptionGenerator.content = JSON.stringify(toUpdateSubscriptionGenerator.content, null, 4);
         break;
     }
+  } else {
+    subscriptionGenerator.name = "";
+    subscriptionGenerator.filterIds = [];
+    subscriptionGenerator.type = "url";
+    subscriptionGenerator.url = "";
+    subscriptionGenerator.content = "";
   }
 }
 
@@ -119,7 +127,7 @@ function onConfirm() {
           </el-select>
         </el-form-item>
         <el-form-item v-show="subscriptionGenerator.type === 'url'">
-          <el-input placeholder="请输入模板链接"></el-input>
+          <el-input placeholder="请输入模板链接" v-model="subscriptionGenerator.url"></el-input>
         </el-form-item>
       </el-form>
       <div v-show="subscriptionGenerator.type === 'json'" class="template-content" style="flex: 1">
@@ -129,7 +137,7 @@ function onConfirm() {
             theme="vs-dark"
             height="100%"
             width="100%"
-            @mounted="onEditorMount"
+            @mount="onEditorMount"
         />
       </div>
     </div>

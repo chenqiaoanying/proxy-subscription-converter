@@ -19,7 +19,7 @@ interface Props {
   height?: string
 }
 const props = defineProps<Props>()
-const emit = defineEmits(['update:modelValue', 'editor-mount', 'editor-mounted'])
+const emit = defineEmits(['update:modelValue', 'mount', 'mounted'])
 
 const container = useTemplateRef<HTMLElement>("container")
 let editor: monaco.editor.IStandaloneCodeEditor
@@ -36,7 +36,7 @@ let editor: monaco.editor.IStandaloneCodeEditor
 }
 
 onMounted(() => {
-  emit('editor-mount', editor)
+  emit('mount', editor)
   editor = monaco.editor.create(container.value!, {
     value: props.modelValue,
     language: props.language || 'javascript',
@@ -46,7 +46,7 @@ onMounted(() => {
   editor.onDidChangeModelContent(() => {
     emit('update:modelValue', editor.getValue())
   })
-  emit('editor-mounted', editor)
+  emit('mounted', editor)
 })
 
 watch(() => props.modelValue, val => {
