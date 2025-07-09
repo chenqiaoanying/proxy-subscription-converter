@@ -36,7 +36,7 @@ const selectedGenerator = ref<DeepReadonly<SubscriptionGenerator> | undefined>(u
       </template>
     </el-card>
   </el-row>
-  <SubscriptionGeneratorDrawer v-model="drawerVisible" :to-update-subscription-generator="selectedGenerator"/>
+  <SubscriptionGeneratorDrawer v-model:visible="drawerVisible" :to-update-subscription-generator="selectedGenerator"/>
 </template>
 
 <style scoped lang="scss">

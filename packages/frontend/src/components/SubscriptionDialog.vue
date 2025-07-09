@@ -3,7 +3,7 @@ import {ref} from 'vue';
 import {ElMessage} from 'element-plus';
 import {useSubscriptionStore} from "@/stores.ts";
 
-const dialogVisible = defineModel<boolean>("dialogVisible");
+const visible = defineModel<boolean>("visible");
 const url = ref("");
 const userAgent = ref("proxy-subscribe-converter");
 const name = ref(crypto.randomUUID());
@@ -15,7 +15,7 @@ function onConfirm() {
   }
   console.log(url.value);
   useSubscriptionStore().loadAndSaveProxy(name.value, url.value, userAgent.value)
-      .then(() => dialogVisible.value = false)
+      .then(() => visible.value = false)
       .catch((err: Error) => {
         ElMessage.error(err.message);
       });
@@ -24,7 +24,7 @@ function onConfirm() {
 </script>
 
 <template>
-  <el-dialog title="添加订阅链接" v-model="dialogVisible">
+  <el-dialog title="添加订阅链接" v-model="visible">
     <el-form label-width="100px">
       <el-form-item label="名称">
         <el-input v-model="name" placeholder="请输入订阅名称"></el-input>

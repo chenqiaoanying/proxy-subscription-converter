@@ -26,7 +26,7 @@ const toUpdateFilter = ref<Filter | undefined>(undefined);
 <template>
   <el-row justify="end">
     <el-button type="primary" @click="toUpdateFilter = undefined; filterDialogVisible = true">添加过滤器</el-button>
-    <FilterDialog v-model:dialog-visible="filterDialogVisible" :to-update-filter="toUpdateFilter"/>
+    <FilterDialog v-model:visible="filterDialogVisible" :to-update-filter="toUpdateFilter"/>
   </el-row>
   <el-divider/>
   <el-row>

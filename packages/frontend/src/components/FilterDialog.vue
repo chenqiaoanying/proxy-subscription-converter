@@ -21,7 +21,7 @@ const filterStore = useFilterStore();
 const selectAllSubscriptions = ref(true)
 const selectAllTypes = ref(true)
 
-const dialogVisible = defineModel<boolean>("dialogVisible");
+const visible = defineModel<boolean>("visible");
 const filter = reactive({
   tag: "",
   subscriptions: [] as DeepReadonly<Subscription>[],
@@ -54,7 +54,7 @@ function onConfirm() {
   })
 
   const update = toUpdateFilter ? filterStore.updateFilter(toUpdateFilter.id, toSaveFilter) : filterStore.createFilter(toSaveFilter);
-  update.then(() => dialogVisible.value = false)
+  update.then(() => visible.value = false)
       .catch((err) => {
         ElMessage.error(err.message);
       })
@@ -83,7 +83,7 @@ function onOpen() {
 
 </script>
 <template>
-  <el-dialog :title='toUpdateFilter ? "编辑过滤器": "添加过滤器"' v-model="dialogVisible" @open="onOpen">
+  <el-dialog :title='toUpdateFilter ? "编辑过滤器": "添加过滤器"' v-model="visible" @open="onOpen">
     <el-form :model="filter" label-width="100px">
       <el-form-item label="名称">
         <el-input v-model="filter.tag" placeholder="请输入名称" :disabled="toUpdateFilter != undefined"></el-input>

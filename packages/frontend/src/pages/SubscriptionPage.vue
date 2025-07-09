@@ -19,7 +19,7 @@ onMounted(() => {
 <template>
   <el-row justify="end">
     <el-button type="primary" @click="addSubscriptionDialogVisible = true">添加订阅链接</el-button>
-    <SubscriptionDialog v-model:dialog-visible="addSubscriptionDialogVisible"/>
+    <SubscriptionDialog v-model:visible="addSubscriptionDialogVisible"/>
   </el-row>
   <el-divider/>
   <el-row>
