@@ -6,6 +6,7 @@ import {storeToRefs} from "pinia";
 import {ElMessage} from "element-plus";
 import type {Filter} from "@psc/common";
 import {FilterSchema} from "@psc/common";
+import { Delete, Edit } from '@element-plus/icons-vue';
 
 const filterDialogVisible = ref(false);
 const filterStore = useFilterStore();
@@ -39,7 +40,8 @@ const toUpdateFilter = ref<Filter | undefined>(undefined);
 
       </div>
       <template #footer>
-        <el-button type="primary" @click="toUpdateFilter = FilterSchema.parse(item); filterDialogVisible = true">编辑</el-button>
+        <el-button type="primary" @click="toUpdateFilter = FilterSchema.parse(item); filterDialogVisible = true" :icon="Edit"/>
+        <el-button type="primary" @click="filterStore.deleteFilter(item.id)" :icon="Delete"/>
       </template>
     </el-card>
   </el-row>

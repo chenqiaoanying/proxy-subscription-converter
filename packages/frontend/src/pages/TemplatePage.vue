@@ -5,6 +5,7 @@ import {useSubscriptionGeneratorStore} from "@/stores.ts";
 import {ElMessage} from "element-plus";
 import {storeToRefs} from "pinia";
 import type {SubscriptionGenerator} from "@psc/common";
+import { Delete, Edit, View } from '@element-plus/icons-vue'
 
 const drawerVisible = ref(false);
 const subscriptionGeneratorStore = useSubscriptionGeneratorStore();
@@ -31,8 +32,9 @@ const selectedGenerator = ref<DeepReadonly<SubscriptionGenerator> | undefined>(u
         <span>{{ item.name }}</span>
       </template>
       <template #footer>
-        <el-button @click="selectedGenerator = item; drawerVisible = true" type="primary">编辑</el-button>
-        <el-button @click="subscriptionGeneratorStore.generate(item.id)" type="primary">预览</el-button>
+        <el-button @click="subscriptionGeneratorStore.generate(item.id)" type="primary" :icon="View"/>
+        <el-button @click="selectedGenerator = item; drawerVisible = true" type="primary" :icon="Edit"/>
+        <el-button @click="subscriptionGeneratorStore.deleteGenerator(item.id)" type="primary" :icon="Delete"/>
       </template>
     </el-card>
   </el-row>

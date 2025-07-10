@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from "axios";
-import {z} from "zod";
-import {DataUsage, Proxy, ProxySchema, SubscriptionSchema, SubscriptionCreateSchema, DataUsageSchema, Subscription, SubscriptionCreate} from "@psc/common";
+import {z} from "zod/v4";
+import {DataUsage, Proxy, ProxySchema, SubscriptionSchema, SubscriptionCreateOrUpdateSchema, DataUsageSchema, SubscriptionCreateOrUpdate} from "@psc/common";
 import {KnownError} from '../errors/KnownError.js';
 import {singleton} from "tsyringe";
 import {PrismaClient, Prisma} from "@psc/database";
@@ -62,15 +62,12 @@ class SubscriptionController {
         // private readonly fileService: FileService,
         private readonly prisma: PrismaClient,
     ) {
-        this.load = this.load.bind(this);
-        this.listSubscription = this.listSubscription.bind(this);
     }
 
-    private readonly loadAndSaveProxyQuerySchema = z.object({
-        name: z.string({message: '无效的名称'}).nonempty("名称不能为空"),
-        url: z.string({message: "无效的URL"}).url({message: "无效的URL"}),
-        userAgent: z.string({message: "'无效的User-Agent'"}).optional(),
-    });
+    private getByIdQuerySchema = z.object({
+        id: z.coerce.number(),
+        refresh: z.coerce.boolean().default(false),
+    })
 
     private toContract(subscription: Prisma.SubscriptionGetPayload<{ include: { proxies: true } }>) {
         return SubscriptionSchema.parse({
@@ -88,18 +85,19 @@ class SubscriptionController {
         });
     }
 
-    private save = async (subscription: Subscription | SubscriptionCreate) => {
+    private save = async (id: number | undefined, subscription: SubscriptionCreateOrUpdate) => {
+        const [dataUsage, proxies] = await loadProxyFromUrl(subscription.url, subscription.userAgent);
         const upsertInput: SubscriptionUpdateInput & SubscriptionCreateInput = {
             name: subscription.name,
             userAgent: subscription.userAgent,
             url: subscription.url,
-            dataUpload: subscription.dataUsage?.upload,
-            dataDownload: subscription.dataUsage?.download,
-            dataTotal: subscription.dataUsage?.total,
-            expireAt: subscription.dataUsage?.expiredAt?.getTime(),
+            dataUpload: dataUsage?.upload,
+            dataDownload: dataUsage?.download,
+            dataTotal: dataUsage?.total,
+            expireAt: dataUsage?.expiredAt?.getTime(),
             proxies: {
                 createMany: {
-                    data: subscription.proxies.map(proxy => ({
+                    data: proxies.map(proxy => ({
                         tag: proxy.tag,
                         type: proxy.type,
                         raw: JSON.stringify(proxy),
@@ -109,64 +107,69 @@ class SubscriptionController {
         }
 
         let savedSubscription;
-        if ("id" in subscription) {
+        if (id) {
             await this.prisma.proxy.deleteMany({
-                where: {subscriptionId: subscription.id},
+                where: {subscriptionId: id},
             })
             savedSubscription = await this.prisma.subscription.update({
-                where: {id: subscription.id},
-                data: upsertInput
+                where: {id},
+                data: upsertInput,
+                include: {proxies: true},
             })
         } else {
             savedSubscription = await this.prisma.subscription.create({
-                data: upsertInput
+                data: upsertInput,
+                include: {proxies: true},
             })
         }
         return savedSubscription;
     }
 
-    async load(req: express.Request, res: express.Response) {
-        const {name, url, userAgent} = this.loadAndSaveProxyQuerySchema.parse(req.query);
-        const [dataUsage, proxies] = await loadProxyFromUrl(url, userAgent);
-        const subscription = SubscriptionCreateSchema.parse({
-            name,
-            userAgent,
-            dataUsage,
-            proxies,
-            url,
-        });
+    createSubscription = async (req: express.Request, res: express.Response) => {
+        const subscriptionCreate = SubscriptionCreateOrUpdateSchema.parse(req.body);
 
-        const saveSubscriptionEntity = await this.save(subscription);
+        const saveSubscriptionEntity = await this.save(undefined, subscriptionCreate);
 
         // this.fileService.saveSubscription(subscription);
-        res.json({id: saveSubscriptionEntity.id, ...subscription});
+        res.json(this.toContract(saveSubscriptionEntity));
     }
 
-    async loadById(req: express.Request, res: express.Response) {
-        const {id} = req.params;
+    updateSubscription = async (req: express.Request, res: express.Response) => {
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
+        const subscriptionUpdate = SubscriptionCreateOrUpdateSchema.parse(req.body);
+
+        const saveSubscriptionEntity = await this.save(undefined, subscriptionUpdate);
+
+        // this.fileService.saveSubscription(subscription);
+        res.json(this.toContract(saveSubscriptionEntity));
+    }
+
+    getSubscription = async (req: express.Request, res: express.Response) => {
+        const {id, refresh} = this.getByIdQuerySchema.parse(req.params);
         let subscriptionEntity = await this.prisma.subscription.findUnique({
             where: {id: Number(id)},
             include: {proxies: true},
         });
-        if (!subscriptionEntity)
-            throw new KnownError('订阅不存在');
+        if (!subscriptionEntity) throw new KnownError('订阅不存在');
+        if (refresh) {
+            subscriptionEntity = await this.save(id, {name: subscriptionEntity.name, url: subscriptionEntity.url, userAgent: subscriptionEntity.userAgent ?? undefined});
+        }
         let subscription = this.toContract(subscriptionEntity);
-        const [dataUsage, proxies] = await loadProxyFromUrl(subscriptionEntity.url, subscriptionEntity.userAgent);
-        subscription = {
-            ...subscription,
-            dataUsage,
-            proxies,
-        };
-
-        await this.save(subscription);
         res.json({subscription});
     }
 
-    async listSubscription(_req: express.Request, res: express.Response) {
+    listSubscription = async (_req: express.Request, res: express.Response) => {
         // const subscriptionList = this.fileService.listSubscription()
         const dbSubscriptions = await this.prisma.subscription.findMany({include: {proxies: true}});
         const subscriptionList = dbSubscriptions.map((subscription) => this.toContract(subscription));
         res.json(subscriptionList);
+    }
+
+    deleteSubscription = async (req: express.Request, res: express.Response) => {
+        const {id} = req.params;
+        await this.prisma.subscription.delete({where: {id: Number(id)}});
+        res.status(204).end();
     }
 }
 

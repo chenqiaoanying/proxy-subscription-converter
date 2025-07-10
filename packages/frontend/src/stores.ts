@@ -22,7 +22,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     }
 
     async function loadAndSaveProxy(name: string, url: string, userAgent: string) {
-        return axios.get("/api/subscription/load-and-save", {responseType: 'json', params: {name, url, userAgent}})
+        return axios.post("/api/subscription/", {responseType: 'json', params: {name, url, userAgent}})
             .then(response => {
                 const savedSubscriptions = SubscriptionSchema.parse(response.data);
                 subscriptionsRef.value.push(savedSubscriptions);
@@ -32,11 +32,17 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     }
 
 
-    async function forceReloadSubscriptions(): Promise<void> {
-        listSubscriptions().then((result) => subscriptionsRef.value = result);
+    async function forceReloadSubscriptions() {
+        return listSubscriptions().then((result) => subscriptionsRef.value = result);
     }
 
-    return {subscriptions: readonly(subscriptionsRef), forceReloadSubscriptions, loadAndSaveProxy}
+    async function deleteSubscription(id: number) {
+        return await axios.delete(`/api/subscription/${id}`)
+            .then(() => subscriptionsRef.value = subscriptionsRef.value.filter(subscription => subscription.id !== id))
+            .catch(axiosErrorMapper);
+    }
+
+    return {subscriptions: readonly(subscriptionsRef), forceReloadSubscriptions, loadAndSaveProxy, deleteSubscription};
 })
 
 export const useFilterStore = defineStore('filter', () => {
@@ -75,13 +81,19 @@ export const useFilterStore = defineStore('filter', () => {
             .catch(axiosErrorMapper);
     }
 
+    async function deleteFilter(id: number) {
+        return axios.delete(`/api/filter/${id}`)
+            .then(() => filtersRef.value = filtersRef.value.filter(filter => filter.id !== id))
+            .catch(axiosErrorMapper);
+    }
+
     async function forceReloadFilters() {
         const result = await listFilters();
         filtersRef.value = result;
         return result;
     }
 
-    return {filters: readonly(filtersRef), listFilters, createFilter, updateFilter, forceReloadFilters};
+    return {filters: readonly(filtersRef), listFilters, createFilter, updateFilter, forceReloadFilters, deleteFilter};
 })
 
 export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator', () => {

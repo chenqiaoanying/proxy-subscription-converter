@@ -2,8 +2,8 @@ import {z} from "zod/v4";
 
 
 export const ProxySchema = z.object({
-    tag: z.string(),
-    type: z.string(),
+    tag: z.string().nonempty(),
+    type: z.string().transform((val) => val.toLowerCase()),
 }).catchall(z.any());
 
 export const DataUsageSchema = z.object({
@@ -27,14 +27,14 @@ export const DataUsageSchema = z.object({
 
 export const SubscriptionSchema = z.object({
     id: z.number(),
-    name: z.string(),
-    url: z.url(),
+    name: z.string({message: '无效的名称'}).nonempty("名称不能为空"),
+    url: z.url({message: "无效的URL"}),
+    userAgent: z.string({message: "'无效的User-Agent'"}).optional(),
     dataUsage: DataUsageSchema.optional(),
-    userAgent: z.string().optional(),
     proxies: z.array(ProxySchema)
 });
 
-export const SubscriptionCreateSchema = SubscriptionSchema.omit({id: true});
+export const SubscriptionCreateOrUpdateSchema = SubscriptionSchema.omit({id: true, dataUsage: true, proxies: true});
 
 export type Proxy = z.infer<typeof ProxySchema>;
 
@@ -42,4 +42,4 @@ export type DataUsage = z.infer<typeof DataUsageSchema>;
 
 export type Subscription = z.infer<typeof SubscriptionSchema>;
 
-export type SubscriptionCreate = z.infer<typeof SubscriptionCreateSchema>;
+export type SubscriptionCreateOrUpdate = z.input<typeof SubscriptionCreateOrUpdateSchema>;

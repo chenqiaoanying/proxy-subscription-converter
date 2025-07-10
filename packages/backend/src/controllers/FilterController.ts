@@ -5,6 +5,7 @@ import {FilterCreateOrUpdateSchema} from "@psc/common";
 import type {Filter, FilterCreateOrUpdate} from "@psc/common";
 import FilterCreateInput = Prisma.FilterCreateInput;
 import FilterUpdateInput = Prisma.FilterUpdateInput;
+import {KnownError} from "../errors/KnownError.js";
 
 @singleton()
 class FilterController {
@@ -61,17 +62,18 @@ class FilterController {
 
     // 更新 Filter
     updateFilter = async (req: express.Request, res: express.Response) => {
-        const {id} = req.params;
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
         const requestFilter = FilterCreateOrUpdateSchema.parse(req.body);
-        await this.save(Number(id), requestFilter);
-        res.json({id: Number(id), ...requestFilter});
+        await this.save(id, requestFilter);
+        res.json({id, ...requestFilter});
     }
 
     // 获取所有 Filter
     getAllFilters = async (_req: express.Request, res: express.Response) => {
         const filters = await this.prisma.filter.findMany({include: {subscriptions: true}});
         const responseFilters = filters.map((filter) => this.toContract(filter));
-        res.json(responseFilters);
+        res.status(200).json(responseFilters);
     }
 
     // 根据 ID 获取单个 Filter
@@ -86,14 +88,15 @@ class FilterController {
             return res.status(404).json({error: 'Filter not found'});
         }
 
-        res.json(this.toContract(filter));
+        res.status(200).json(this.toContract(filter));
     }
 
     // 删除 Filter
     deleteFilter = async (req: express.Request, res: express.Response) => {
-        const {id} = req.params;
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
         await this.prisma.filter.delete({
-            where: {id: Number(id)}
+            where: {id}
         });
 
         res.status(204).end();
