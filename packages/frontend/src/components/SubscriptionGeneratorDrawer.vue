@@ -41,6 +41,11 @@ function onEditorMount() {
 }
 
 function onOpen() {
+  subscriptionGenerator.name = "";
+  subscriptionGenerator.filterIds = [];
+  subscriptionGenerator.type = "url";
+  subscriptionGenerator.url = "";
+  subscriptionGenerator.content = "";
   if (toUpdateSubscriptionGenerator) {
     subscriptionGenerator.name = toUpdateSubscriptionGenerator.name;
     subscriptionGenerator.filterIds = toUpdateSubscriptionGenerator.filterIds.map((id) => id);
@@ -55,12 +60,6 @@ function onOpen() {
         subscriptionGenerator.content = JSON.stringify(toUpdateSubscriptionGenerator.content, null, 4);
         break;
     }
-  } else {
-    subscriptionGenerator.name = "";
-    subscriptionGenerator.filterIds = [];
-    subscriptionGenerator.type = "url";
-    subscriptionGenerator.url = "";
-    subscriptionGenerator.content = "";
   }
 }
 
@@ -83,7 +82,6 @@ function onConfirm() {
 
   const {data, error, success} = SubscriptionGeneratorCreateOrUpdateSchema.safeParse(subscriptionGenerator)
   if (!success) {
-    debugger
     ElMessage.error(error.message);
     return;
   }

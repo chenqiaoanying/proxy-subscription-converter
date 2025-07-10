@@ -1,10 +1,14 @@
 import {defineStore} from 'pinia';
 import {SubscriptionSchema, FilterSchema, SubscriptionGeneratorSchema} from "@psc/common";
-import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate, SubscriptionGeneratorCreateOrUpdate} from "@psc/common";
+import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate, SubscriptionGeneratorCreateOrUpdate, SubscriptionCreateOrUpdate} from "@psc/common";
 import {readonly, ref} from "vue";
 import axios from "axios";
+import {z, ZodError} from "zod/v4";
 
 function axiosErrorMapper(error: any): never {
+    if (error instanceof ZodError) {
+        console.error(z.prettifyError(error));
+    }
     const errorMsg = error.response?.data?.error;
     if (errorMsg) {
         throw new Error(errorMsg);
@@ -17,20 +21,49 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
     async function listSubscriptions() {
         return axios.get("/api/subscription", {responseType: 'json'})
-            .then(response => (response.data as any[]).map((item) => SubscriptionSchema.parse(item)))
+            .then(response => (response.data as any[]).map(item => SubscriptionSchema.parse(item)))
             .catch(axiosErrorMapper);
     }
 
-    async function loadAndSaveProxy(name: string, url: string, userAgent: string) {
-        return axios.post("/api/subscription/", {responseType: 'json', params: {name, url, userAgent}})
+    async function createSubscription(subscriptionCreateOrUpdate: SubscriptionCreateOrUpdate) {
+        return axios.post("/api/subscription", subscriptionCreateOrUpdate)
             .then(response => {
-                const savedSubscriptions = SubscriptionSchema.parse(response.data);
-                subscriptionsRef.value.push(savedSubscriptions);
-                return savedSubscriptions;
+                const savedSubscription = SubscriptionSchema.parse(response.data);
+                subscriptionsRef.value.push(savedSubscription);
+                return savedSubscription;
             })
             .catch(axiosErrorMapper);
     }
 
+    async function updateSubscription(id: number, subscriptionCreateOrUpdate: SubscriptionCreateOrUpdate) {
+        return axios.put(`/api/subscription/${id}`, subscriptionCreateOrUpdate)
+            .then(response => {
+                const savedSubscription = SubscriptionSchema.parse(response.data);
+                const toReplaceIndex = subscriptionsRef.value.findIndex(subscription => subscription.id === id);
+                if (toReplaceIndex >= 0) {
+                    subscriptionsRef.value[toReplaceIndex] = savedSubscription;
+                } else {
+                    subscriptionsRef.value.push(savedSubscription);
+                }
+                return savedSubscription;
+            })
+            .catch(axiosErrorMapper);
+    }
+
+    async function getSubscription(id: number, refresh: boolean = false) {
+        return axios.get(`/api/subscription/${id}`, {params: {refresh}, responseType: 'json'})
+            .then(response => {
+                const savedSubscription = SubscriptionSchema.parse(response.data);
+                const toReplaceIndex = subscriptionsRef.value.findIndex(subscription => subscription.id === id);
+                if (toReplaceIndex >= 0) {
+                    subscriptionsRef.value[toReplaceIndex] = savedSubscription;
+                } else {
+                    subscriptionsRef.value.push(savedSubscription);
+                }
+                return savedSubscription;
+            })
+            .catch(axiosErrorMapper);
+    }
 
     async function forceReloadSubscriptions() {
         return listSubscriptions().then((result) => subscriptionsRef.value = result);
@@ -42,7 +75,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
             .catch(axiosErrorMapper);
     }
 
-    return {subscriptions: readonly(subscriptionsRef), forceReloadSubscriptions, loadAndSaveProxy, deleteSubscription};
+    return {subscriptions: readonly(subscriptionsRef), forceReloadSubscriptions, createSubscription, deleteSubscription, updateSubscription, getSubscription};
 })
 
 export const useFilterStore = defineStore('filter', () => {
@@ -70,7 +103,7 @@ export const useFilterStore = defineStore('filter', () => {
         return axios.put(`/api/filter/${id}`, filter)
             .then(response => {
                 const savedFilter = FilterSchema.parse(response.data);
-                const toReplaceIndex = filtersRef.value.findIndex(filter => filter.id === filter.id);
+                const toReplaceIndex = filtersRef.value.findIndex(filter => filter.id === id);
                 if (toReplaceIndex >= 0) {
                     filtersRef.value[toReplaceIndex] = savedFilter;
                 } else {
@@ -121,7 +154,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
         return axios.put(`/api/subscription-generator/${id}`, generator)
             .then(response => {
                 const updatedGenerator = SubscriptionGeneratorSchema.parse(response.data);
-                const index = generatorsRef.value.findIndex(g => g.id === updatedGenerator.id);
+                const index = generatorsRef.value.findIndex(g => g.id === id);
                 if (index !== -1) {
                     generatorsRef.value[index] = updatedGenerator;
                 } else {

@@ -80,7 +80,7 @@ class SubscriptionController {
                 download: subscription.dataDownload,
                 expiredAt: new Date(Number(subscription.expireAt.toString())),
             } : undefined,
-            proxies: subscription.proxies,
+            proxies: subscription.proxies.map(p => ProxySchema.parse({...p, ...(p.raw as any), raw: undefined})),
             url: subscription.url,
         });
     }
@@ -100,7 +100,7 @@ class SubscriptionController {
                     data: proxies.map(proxy => ({
                         tag: proxy.tag,
                         type: proxy.type,
-                        raw: JSON.stringify(proxy),
+                        raw: proxy,
                     }))
                 },
             }
@@ -146,7 +146,7 @@ class SubscriptionController {
     }
 
     getSubscription = async (req: express.Request, res: express.Response) => {
-        const {id, refresh} = this.getByIdQuerySchema.parse(req.params);
+        const {id, refresh} = this.getByIdQuerySchema.parse({id: req.params.id, refresh: req.query.refresh});
         let subscriptionEntity = await this.prisma.subscription.findUnique({
             where: {id: Number(id)},
             include: {proxies: true},
@@ -156,7 +156,7 @@ class SubscriptionController {
             subscriptionEntity = await this.save(id, {name: subscriptionEntity.name, url: subscriptionEntity.url, userAgent: subscriptionEntity.userAgent ?? undefined});
         }
         let subscription = this.toContract(subscriptionEntity);
-        res.json({subscription});
+        res.json(subscription);
     }
 
     listSubscription = async (_req: express.Request, res: express.Response) => {
