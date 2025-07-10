@@ -1,9 +1,9 @@
 <template>
-  <div ref="container" :style="{ width, height }" />
+  <div ref="container" :style="{ width, height }"/>
 </template>
 
 <script setup lang="ts">
-import { useTemplateRef, watch, onMounted, onBeforeUnmount } from 'vue'
+import {useTemplateRef, watch, onMounted, onBeforeUnmount} from 'vue'
 import * as monaco from 'monaco-editor'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
@@ -17,7 +17,9 @@ interface Props {
   theme?: string
   width?: string
   height?: string
+  readonly?: boolean
 }
+
 const props = defineProps<Props>()
 const emit = defineEmits(['update:modelValue', 'mount', 'mounted'])
 
@@ -42,6 +44,8 @@ onMounted(() => {
     language: props.language || 'javascript',
     theme: props.theme || 'vs-dark',
     automaticLayout: true,
+    readOnly: props.readonly ?? false,
+    domReadOnly: props.readonly ?? false,
   })
   editor.onDidChangeModelContent(() => {
     emit('update:modelValue', editor.getValue())
