@@ -141,12 +141,13 @@ class SubscriptionGeneratorController {
             return;
         }
         const outbounds = content.outbounds as any[] || [];
-        generator.filters.map(filter => {
+        const tasks = generator.filters.map(async filter => {
             const {tag, subscriptions, includeTypes, includeRegex, excludeRegex} = filter;
             const parsedIncludeTypes = includeTypes?.toLowerCase()?.split(",")?.filter(type => type.length > 0) ?? [];
             const parsedIncludeRegex = includeRegex && includeRegex.length > 0 ? new RegExp(includeRegex) : null;
             const parsedExcludeRegex = excludeRegex && excludeRegex.length > 0 ? new RegExp(excludeRegex) : null;
-            const selectedProxies = subscriptions.flatMap(subscription =>
+            const selectedSubscriptions = subscriptions.length > 0 ? subscriptions : await this.prisma.subscription.findMany({include: {proxies: true}});
+            const selectedProxies = selectedSubscriptions.flatMap(subscription =>
                 subscription.proxies
                     .filter(proxy => {
                         if (parsedIncludeTypes.length > 0 && !parsedIncludeTypes.includes(proxy.type.toLowerCase())) return false;
@@ -160,6 +161,7 @@ class SubscriptionGeneratorController {
                 tag, type: "selector", outbounds: selectedProxies,
             })
         })
+        await Promise.all(tasks);
         res.status(200).send({...content, outbounds});
 
     }
