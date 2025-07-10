@@ -8,6 +8,7 @@ import SubscriptionGeneratorUpdateInput = Prisma.SubscriptionGeneratorUpdateInpu
 import SubscriptionGeneratorGetPayload = Prisma.SubscriptionGeneratorGetPayload;
 import {KnownError} from "../errors/KnownError.js";
 import axios from "axios";
+import {AsyncLazy} from "@psc/common";
 
 @singleton()
 class SubscriptionGeneratorController {
@@ -140,13 +141,14 @@ class SubscriptionGeneratorController {
             res.status(404).json({error: 'Fail to load subscriptionGenerator content'});
             return;
         }
-        const outbounds = content.outbounds as any[] || [];
+
+        const allSubscriptions = new AsyncLazy(() => this.prisma.subscription.findMany({include: {proxies: true}}))
         const tasks = generator.filters.map(async filter => {
             const {tag, subscriptions, includeTypes, includeRegex, excludeRegex} = filter;
             const parsedIncludeTypes = includeTypes?.toLowerCase()?.split(",")?.filter(type => type.length > 0) ?? [];
             const parsedIncludeRegex = includeRegex && includeRegex.length > 0 ? new RegExp(includeRegex) : null;
             const parsedExcludeRegex = excludeRegex && excludeRegex.length > 0 ? new RegExp(excludeRegex) : null;
-            const selectedSubscriptions = subscriptions.length > 0 ? subscriptions : await this.prisma.subscription.findMany({include: {proxies: true}});
+            const selectedSubscriptions = subscriptions.length > 0 ? subscriptions : await allSubscriptions.getValue();
             const selectedProxies = selectedSubscriptions.flatMap(subscription =>
                 subscription.proxies
                     .filter(proxy => {
@@ -157,11 +159,10 @@ class SubscriptionGeneratorController {
                     })
                     .map(proxy => proxy.raw?.valueOf())
             )
-            outbounds.push({
-                tag, type: "selector", outbounds: selectedProxies,
-            })
+            return {tag, type: "selector", outbounds: selectedProxies,}
         })
-        await Promise.all(tasks);
+        const outbounds = await Promise.all(tasks);
+        if (content.outbounds) outbounds.push(...content.outbounds);
         res.status(200).send({...content, outbounds});
 
     }
