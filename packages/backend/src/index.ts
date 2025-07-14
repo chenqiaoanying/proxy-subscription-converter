@@ -2,20 +2,21 @@ import 'reflect-metadata';
 import express from 'express';
 import path from 'path';
 import './registry.js';
-import subscriptionRouter from './routes/subscriptionRouter.js';
-import filterRouter from './routes/filterRouter.js';
-import subscriptionGeneratorRouter from "./routes/subscriptionGeneratorRouter.js";
 import {KnownError} from "./errors/KnownError.js";
 import {z, ZodError} from "zod/v4";
+import {container} from "tsyringe";
+import SubscriptionController from "./controllers/SubscriptionController.js";
+import FilterController from "./controllers/FilterController.js";
+import SubscriptionGeneratorController from "./controllers/SubscriptionGeneratorController.js";
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
 // 注册订阅相关路由
-app.use('/api/subscription', subscriptionRouter);
-app.use('/api/filter', filterRouter);
-app.use('/api/subscription-generator', subscriptionGeneratorRouter)
+app.use('/api/subscription', container.resolve(SubscriptionController).router);
+app.use('/api/filter', container.resolve(FilterController).router);
+app.use('/api/subscription-generator', container.resolve(SubscriptionGeneratorController).router)
 
 // 代理Vue静态文件
 app.use(express.static(path.resolve(process.cwd(), '../frontend/dist')));

@@ -1,105 +1,68 @@
 import express from 'express';
-import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
 import {FilterCreateOrUpdateSchema} from "@psc/common";
-import type {Filter, FilterCreateOrUpdate} from "@psc/common";
-import FilterCreateInput = Prisma.FilterCreateInput;
-import FilterUpdateInput = Prisma.FilterUpdateInput;
 import {KnownError} from "../errors/KnownError.js";
+import FilterService from "../services/FilterService.js";
 
 @singleton()
 class FilterController {
-    constructor(private readonly prisma: PrismaClient) {
-    }
-
-    private toContract(filter: Prisma.FilterGetPayload<{ include: { subscriptions: true } }>) {
-        return {
-            id: filter.id,
-            tag: filter.tag,
-            subscriptionIds: filter.subscriptions.map((subscription) => subscription.id),
-            includeTypes: filter.includeTypes?.split(',')?.filter((type) => type.length > 0),
-            excludeTypes: filter.excludeTypes?.split(',')?.filter((type) => type.length > 0),
-            includePattern: filter.includeRegex,
-            excludePattern: filter.excludeRegex,
-        } as Filter;
-    }
-
-    private save = async (filterId: number | undefined, filter: FilterCreateOrUpdate) => {
-        const mainTableUpsertInput: FilterCreateInput & FilterUpdateInput = {
-            tag: filter.tag,
-            includeTypes: filter.includeTypes?.join(),
-            excludeTypes: filter.excludeTypes?.join(),
-            excludeRegex: filter.excludePattern,
-            includeRegex: filter.includePattern,
-        }
-        if (filterId)
-            return this.prisma.filter.update({
-                where: {id: filterId},
-                data: {
-                    ...mainTableUpsertInput,
-                    subscriptions: {
-                        set: filter.subscriptionIds?.map((id) => ({id})) ?? []
-                    }
-                },
-            });
-        else
-            return this.prisma.filter.create({
-                data: {
-                    ...mainTableUpsertInput,
-                    subscriptions: {
-                        connect: filter.subscriptionIds?.map((id) => ({id})) ?? []
-                    }
-                }
-            });
+    constructor(private readonly filterService: FilterService) {
     }
 
     // 创建 Filter
     createFilter = async (req: express.Request, res: express.Response) => {
-        const requestFilter = FilterCreateOrUpdateSchema.parse(req.body);
-        const savedFilterEntity = await this.save(undefined, requestFilter);
-        res.status(201).json({id: savedFilterEntity.id, ...requestFilter});
+        const filterCreate = FilterCreateOrUpdateSchema.parse(req.body);
+        const filter = await this.filterService.createFilter(filterCreate);
+        res.status(201).json(filter);
     }
 
     // 更新 Filter
     updateFilter = async (req: express.Request, res: express.Response) => {
         const id = Number(req.params.id);
         if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
-        const requestFilter = FilterCreateOrUpdateSchema.parse(req.body);
-        await this.save(id, requestFilter);
-        res.json({id, ...requestFilter});
+        const filterUpdate = FilterCreateOrUpdateSchema.parse(req.body);
+        const filter = await this.filterService.updateFilter(id, filterUpdate);
+        res.json(filter);
     }
 
     // 获取所有 Filter
-    getAllFilters = async (_req: express.Request, res: express.Response) => {
-        const filters = await this.prisma.filter.findMany({include: {subscriptions: true}});
-        const responseFilters = filters.map((filter) => this.toContract(filter));
-        res.status(200).json(responseFilters);
+    listFilters = async (_req: express.Request, res: express.Response) => {
+        const filters = this.filterService.listFilters();
+        res.status(200).json(filters);
     }
 
     // 根据 ID 获取单个 Filter
     getFilterById = async (req: express.Request, res: express.Response) => {
-        const {tag} = req.params;
-        const filter = await this.prisma.filter.findUnique({
-            where: {tag},
-            include: {subscriptions: true}
-        });
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
+        const filter = await this.filterService.getFilterById(id);
 
         if (!filter) {
-            return res.status(404).json({error: 'Filter not found'});
+            res.status(404).json({error: 'Filter not found'});
+            return;
         }
 
-        res.status(200).json(this.toContract(filter));
+        res.status(200).json(filter);
     }
 
     // 删除 Filter
     deleteFilter = async (req: express.Request, res: express.Response) => {
         const id = Number(req.params.id);
         if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
-        await this.prisma.filter.delete({
-            where: {id}
-        });
+
+        await this.filterService.deleteFilter(id);
 
         res.status(204).end();
+    }
+
+    get router() {
+        const router = express.Router();
+        router.post('/', this.createFilter);
+        router.get('/', this.listFilters);
+        router.get('/:id', this.getFilterById);
+        router.put('/:id', this.updateFilter);
+        router.delete('/:id', this.deleteFilter);
+        return router;
     }
 }
 

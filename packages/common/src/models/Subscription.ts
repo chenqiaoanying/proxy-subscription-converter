@@ -10,19 +10,7 @@ export const DataUsageSchema = z.object({
     total: z.coerce.number(),
     upload: z.coerce.number(),
     download: z.coerce.number(),
-    expiredAt: z.preprocess((val) => {
-        switch (typeof val) {
-            case "number":
-                return new Date(val);
-            case "string":
-                if (isNaN(parseInt(val)))
-                    return new Date(parseInt(val));
-                else
-                    return val;
-            default:
-                return val;
-        }
-    }, z.coerce.date()),
+    expiredAt: z.coerce.date(),
 });
 
 export const SubscriptionSchema = z.object({

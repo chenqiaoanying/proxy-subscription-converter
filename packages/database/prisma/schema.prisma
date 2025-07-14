@@ -28,7 +28,7 @@ model Subscription {
   dataTotal     BigInt?
   expireAt      BigInt?
   proxies       Proxy[]
-  filters       Filter[]
+  filters       FilterOnSubscription[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -45,13 +45,30 @@ model Proxy {
 model Filter {
   id                      Int       @id @default(autoincrement())
   tag                     String    @unique
-  subscriptions           Subscription[]
-  subscriptionGenerators  SubscriptionGenerator[]
-  includeTypes            String?
-  excludeTypes            String?
+  type                    String
+  subscriptions     FilterOnSubscription[]
+  generators      GeneratorOnFilter[]
+  proxyTypeFilterMode     String
+  proxyTypes              String?
   excludeRegex            String?
   includeRegex            String?
   createdAt               DateTime  @default(now())
+}
+
+model FilterOnSubscription {
+  filterId        Int
+  subscriptionId  Int
+  filter          Filter       @relation(fields: [filterId], references: [id], onDelete: Cascade)
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  @@id([filterId, subscriptionId])
+}
+
+model GeneratorOnFilter {
+  generatorId     Int
+  filterId        Int
+  generator       SubscriptionGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  filter          Filter               @relation(fields: [filterId], references: [id], onDelete: Cascade)
+  @@id([generatorId, filterId])
 }
 
 model SubscriptionGenerator {
@@ -60,5 +77,5 @@ model SubscriptionGenerator {
   type          String
   content       Json?
   url           String?
-  filters       Filter[]
+  filters       GeneratorOnFilter[]
 }
