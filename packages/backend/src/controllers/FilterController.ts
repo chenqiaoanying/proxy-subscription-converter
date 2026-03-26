@@ -27,7 +27,7 @@ class FilterController {
 
     // 获取所有 Filter
     listFilters = async (_req: express.Request, res: express.Response) => {
-        const filters = this.filterService.listFilters();
+        const filters = await this.filterService.listFilters();
         res.status(200).json(filters);
     }
 

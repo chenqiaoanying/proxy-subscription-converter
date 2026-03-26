@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import {type DeepReadonly, onMounted, ref} from "vue";
-import SubscriptionGeneratorDrawer from "@components/SubscriptionGeneratorDrawer.vue";
-import {useSubscriptionGeneratorStore} from "@/stores.ts";
+import GeneratorDrawer from "@components/GeneratorDrawer.vue";
+import {useGeneratorStore} from "@/stores.ts";
 import {ElMessage} from "element-plus";
 import {storeToRefs} from "pinia";
-import type {SubscriptionGenerator} from "@psc/common";
+import type {Generator} from "@psc/common";
 import {Delete, Edit, View} from '@element-plus/icons-vue'
 import MonacoEditor from "@components/MonacoEditor.vue";
 
 const drawerVisible = ref(false);
 const previewVisible = ref(false);
 const previewContent = ref("");
-const subscriptionGeneratorStore = useSubscriptionGeneratorStore();
+const subscriptionGeneratorStore = useGeneratorStore();
 const {generators} = storeToRefs(subscriptionGeneratorStore);
 onMounted(() => {
   subscriptionGeneratorStore.forceReloadGenerators()
@@ -20,7 +20,7 @@ onMounted(() => {
       });
 })
 
-const selectedGenerator = ref<DeepReadonly<SubscriptionGenerator> | undefined>(undefined);
+const selectedGenerator = ref<DeepReadonly<Generator> | undefined>(undefined);
 
 function preview(id: number) {
   subscriptionGeneratorStore.generate(id)
@@ -51,7 +51,7 @@ function preview(id: number) {
       </template>
     </el-card>
   </el-row>
-  <SubscriptionGeneratorDrawer v-model:visible="drawerVisible" :to-update-subscription-generator="selectedGenerator"/>
+  <GeneratorDrawer v-model:visible="drawerVisible" :to-update-subscription-generator="selectedGenerator"/>
   <el-dialog v-model="previewVisible" width="50vh">
     <template #header>预览</template>
     <div style="height: 50vh">

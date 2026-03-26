@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SubscriptionPage from "@/pages/SubscriptionPage.vue";
 import FilterManagementPage from "@/pages/FilterManagementPage.vue";
-import SubscriptionGeneratorPage from "@/pages/SubscriptionGeneratorPage.vue";
+import GeneratorPage from "@/pages/GeneratorPage.vue";
 
 </script>
 <template>
@@ -13,7 +13,7 @@ import SubscriptionGeneratorPage from "@/pages/SubscriptionGeneratorPage.vue";
       <FilterManagementPage/>
     </el-tab-pane>
     <el-tab-pane label="生成订阅">
-      <SubscriptionGeneratorPage/>
+      <GeneratorPage/>
     </el-tab-pane>
   </el-tabs>
 </template>

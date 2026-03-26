@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia';
-import {SubscriptionSchema, FilterSchema, SubscriptionGeneratorSchema} from "@psc/common";
-import type {Subscription, Filter, SubscriptionGenerator, FilterCreateOrUpdate, SubscriptionGeneratorCreateOrUpdate, SubscriptionCreateOrUpdate} from "@psc/common";
+import {SubscriptionSchema, FilterSchema, GeneratorSchema} from "@psc/common";
+import type {Subscription, Filter, Generator, FilterCreateOrUpdate, GeneratorCreateOrUpdate, SubscriptionCreateOrUpdate} from "@psc/common";
 import {readonly, ref} from "vue";
 import axios from "axios";
 import {z, ZodError} from "zod/v4";
@@ -8,6 +8,8 @@ import {z, ZodError} from "zod/v4";
 function axiosErrorMapper(error: any): never {
     if (error instanceof ZodError) {
         console.error(z.prettifyError(error));
+    } else {
+        console.error(error);
     }
     const errorMsg = error.response?.data?.error;
     if (errorMsg) {
@@ -129,31 +131,31 @@ export const useFilterStore = defineStore('filter', () => {
     return {filters: readonly(filtersRef), listFilters, createFilter, updateFilter, forceReloadFilters, deleteFilter};
 })
 
-export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator', () => {
-    const generatorsRef = ref<SubscriptionGenerator[]>([]);
+export const useGeneratorStore = defineStore('subscriptionGenerator', () => {
+    const generatorsRef = ref<Generator[]>([]);
 
-    async function listGenerators(): Promise<SubscriptionGenerator[]> {
-        return axios.get("/api/subscription-generator", {responseType: 'json'})
+    async function listGenerators(): Promise<Generator[]> {
+        return axios.get("/api/generator", {responseType: 'json'})
             .then(response => {
-                return (response.data as any[]).map((item) => SubscriptionGeneratorSchema.parse(item));
+                return (response.data as any[]).map((item) => GeneratorSchema.parse(item));
             })
             .catch(axiosErrorMapper);
     }
 
-    async function createGenerator(generator: SubscriptionGeneratorCreateOrUpdate) {
-        return axios.post("/api/subscription-generator", generator)
+    async function createGenerator(generator: GeneratorCreateOrUpdate) {
+        return axios.post("/api/generator", generator)
             .then(response => {
-                const savedGenerator = SubscriptionGeneratorSchema.parse(response.data);
+                const savedGenerator = GeneratorSchema.parse(response.data);
                 generatorsRef.value.push(savedGenerator);
                 return savedGenerator;
             })
             .catch(axiosErrorMapper);
     }
 
-    async function updateGenerator(id: number, generator: SubscriptionGeneratorCreateOrUpdate) {
-        return axios.put(`/api/subscription-generator/${id}`, generator)
+    async function updateGenerator(id: number, generator: GeneratorCreateOrUpdate) {
+        return axios.put(`/api/generator/${id}`, generator)
             .then(response => {
-                const updatedGenerator = SubscriptionGeneratorSchema.parse(response.data);
+                const updatedGenerator = GeneratorSchema.parse(response.data);
                 const index = generatorsRef.value.findIndex(g => g.id === id);
                 if (index !== -1) {
                     generatorsRef.value[index] = updatedGenerator;
@@ -166,7 +168,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
     }
 
     async function deleteGenerator(id: number) {
-        return axios.delete(`/api/subscription-generator/${id}`)
+        return axios.delete(`/api/generator/${id}`)
             .then(() => {
                 generatorsRef.value = generatorsRef.value.filter(g => g.id !== id);
             })
@@ -174,7 +176,7 @@ export const useSubscriptionGeneratorStore = defineStore('subscriptionGenerator'
     }
 
     async function generate(id: number) {
-        return axios.get(`/api/subscription-generator/generate/${id}`)
+        return axios.get(`/api/generator/generate/${id}`)
             .then(res => {
                 return res.data;
             })

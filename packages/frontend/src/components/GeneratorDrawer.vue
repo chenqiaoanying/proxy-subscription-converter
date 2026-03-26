@@ -3,19 +3,19 @@ import {type DeepReadonly, reactive} from "vue";
 import MonacoEditor from '@components/MonacoEditor.vue';
 import * as monaco from "monaco-editor";
 import singboxSchema from "@/schemas/sing-box.schema.json";
-import {useFilterStore, useSubscriptionGeneratorStore} from "@/stores.ts";
+import {useFilterStore, useGeneratorStore} from "@/stores.ts";
 import {storeToRefs} from "pinia";
 import {ElMessage} from "element-plus";
-import type {SubscriptionGenerator} from "@psc/common";
-import {SubscriptionGeneratorCreateOrUpdateSchema} from "@psc/common";
+import type {Generator} from "@psc/common";
+import {GeneratorCreateOrUpdateSchema} from "@psc/common";
 
 const filterStore = useFilterStore();
 const filterStoreRefs = storeToRefs(filterStore);
 const filters = filterStoreRefs.filters;
-const subscriptionGeneratorStore = useSubscriptionGeneratorStore();
+const subscriptionGeneratorStore = useGeneratorStore();
 
-const {toUpdateSubscriptionGenerator = undefined} = defineProps<{
-  toUpdateSubscriptionGenerator?: DeepReadonly<SubscriptionGenerator>,
+const {toUpdateGenerator = undefined} = defineProps<{
+  toUpdateGenerator?: DeepReadonly<Generator>,
 }>();
 
 const subscriptionGenerator = reactive({
@@ -46,18 +46,18 @@ function onOpen() {
   subscriptionGenerator.type = "url";
   subscriptionGenerator.url = "";
   subscriptionGenerator.content = "";
-  if (toUpdateSubscriptionGenerator) {
-    subscriptionGenerator.name = toUpdateSubscriptionGenerator.name;
-    subscriptionGenerator.filterIds = toUpdateSubscriptionGenerator.filterIds.map((id) => id);
-    subscriptionGenerator.type = toUpdateSubscriptionGenerator.type;
-    switch (toUpdateSubscriptionGenerator.type) {
+  if (toUpdateGenerator) {
+    subscriptionGenerator.name = toUpdateGenerator.name;
+    subscriptionGenerator.filterIds = toUpdateGenerator.filterIds.map((id) => id);
+    subscriptionGenerator.type = toUpdateGenerator.type;
+    switch (toUpdateGenerator.type) {
       case "url":
-        subscriptionGenerator.url = toUpdateSubscriptionGenerator.url;
+        subscriptionGenerator.url = toUpdateGenerator.url;
         subscriptionGenerator.content = "";
         break;
       case "json":
         subscriptionGenerator.url = "";
-        subscriptionGenerator.content = JSON.stringify(toUpdateSubscriptionGenerator.content, null, 4);
+        subscriptionGenerator.content = JSON.stringify(toUpdateGenerator.content, null, 4);
         break;
     }
   }
@@ -80,12 +80,12 @@ function onConfirm() {
     validateJson();
   }
 
-  const {data, error, success} = SubscriptionGeneratorCreateOrUpdateSchema.safeParse(subscriptionGenerator)
+  const {data, error, success} = GeneratorCreateOrUpdateSchema.safeParse(subscriptionGenerator)
   if (!success) {
     ElMessage.error(error.message);
     return;
   }
-  const update = toUpdateSubscriptionGenerator ? subscriptionGeneratorStore.updateGenerator(toUpdateSubscriptionGenerator.id, data) : subscriptionGeneratorStore.createGenerator(data);
+  const update = toUpdateGenerator ? subscriptionGeneratorStore.updateGenerator(toUpdateGenerator.id, data) : subscriptionGeneratorStore.createGenerator(data);
   update.then(() => visible.value = false)
       .catch((err) => {
         ElMessage.error(err.message);

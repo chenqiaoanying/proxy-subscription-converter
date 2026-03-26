@@ -39,7 +39,7 @@ class SubscriptionController {
     }
 
     listSubscription = async (_req: express.Request, res: express.Response) => {
-        const subscriptionList = this.subscriptionService.listSubscription();
+        const subscriptionList = await this.subscriptionService.listSubscription();
         res.json(subscriptionList);
     }
 

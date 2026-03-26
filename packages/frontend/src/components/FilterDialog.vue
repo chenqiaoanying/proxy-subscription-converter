@@ -48,6 +48,7 @@ function onConfirm() {
   }
   const toSaveFilter = FilterCreateOrUpdateSchema.parse({
     tag: filter.tag,
+    type: filter.type,
     subscriptionIds: filter.subscriptionIds,
     proxyTypeFilterMode: filter.proxyTypeFilterMode,
     proxyTypes: filter.proxyTypes,

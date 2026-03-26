@@ -33,15 +33,15 @@ const Url = z.object({
     url: z.url(),
 });
 
-export const SubscriptionGeneratorSchema = z.discriminatedUnion("type", [
+export const GeneratorSchema = z.discriminatedUnion("type", [
     Json, Url,
 ]);
 
-export const SubscriptionGeneratorCreateOrUpdateSchema = z.discriminatedUnion("type", [
+export const GeneratorCreateOrUpdateSchema = z.discriminatedUnion("type", [
     Json.omit({id: true}),
     Url.omit({id: true}),
 ]);
 
-export type SubscriptionGenerator = z.infer<typeof SubscriptionGeneratorSchema>;
+export type Generator = z.infer<typeof GeneratorSchema>;
 
-export type SubscriptionGeneratorCreateOrUpdate = z.input<typeof SubscriptionGeneratorCreateOrUpdateSchema>;
+export type GeneratorCreateOrUpdate = z.input<typeof GeneratorCreateOrUpdateSchema>;

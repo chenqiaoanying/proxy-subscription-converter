@@ -66,12 +66,12 @@ model FilterOnSubscription {
 model GeneratorOnFilter {
   generatorId     Int
   filterId        Int
-  generator       SubscriptionGenerator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  generator       Generator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
   filter          Filter               @relation(fields: [filterId], references: [id], onDelete: Cascade)
   @@id([generatorId, filterId])
 }
 
-model SubscriptionGenerator {
+model Generator {
   id            Int       @id @default(autoincrement())
   name          String    @unique
   type          String

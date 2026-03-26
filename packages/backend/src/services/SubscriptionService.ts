@@ -139,9 +139,12 @@ export default class SubscriptionService {
         return this.toContract(subscriptionEntity);
     }
 
-    listSubscription = async () => {
+    listSubscription = async ({refresh: false}) => {
         // const subscriptionList = this.fileService.listSubscription()
         const subscriptionEntities = await this.prisma.subscription.findMany({include: {proxies: true}});
+        if (refresh) {
+
+        }
         return subscriptionEntities.map((subscription) => this.toContract(subscription));
     }
 

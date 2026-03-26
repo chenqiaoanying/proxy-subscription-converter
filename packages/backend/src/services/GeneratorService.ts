@@ -1,10 +1,10 @@
 import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
 import * as common from "@psc/common";
-import type {SubscriptionGeneratorCreateOrUpdate, Subscription} from "@psc/common";
-import SubscriptionGeneratorCreateInput = Prisma.SubscriptionGeneratorCreateInput;
-import SubscriptionGeneratorUpdateInput = Prisma.SubscriptionGeneratorUpdateInput;
-import SubscriptionGeneratorGetPayload = Prisma.SubscriptionGeneratorGetPayload;
+import type {GeneratorCreateOrUpdate, Subscription} from "@psc/common";
+import GeneratorCreateInput = Prisma.GeneratorCreateInput;
+import GeneratorUpdateInput = Prisma.GeneratorUpdateInput;
+import GeneratorGetPayload = Prisma.GeneratorGetPayload;
 import {KnownError} from "../errors/KnownError.js";
 import axios from "axios";
 import FilterService from "./FilterService.js";
@@ -19,8 +19,8 @@ export default class GeneratorService {
     ) {
     }
 
-    private toContract(generatorEntity: SubscriptionGeneratorGetPayload<{ include: { filters: true } }>) {
-        return common.SubscriptionGeneratorSchema.parse({
+    private toContract(generatorEntity: GeneratorGetPayload<{ include: { filters: true } }>) {
+        return common.GeneratorSchema.parse({
             id: generatorEntity.id,
             name: generatorEntity.name,
             type: generatorEntity.type,
@@ -30,8 +30,8 @@ export default class GeneratorService {
         });
     }
 
-    private save = async (id: number | undefined, generator: SubscriptionGeneratorCreateOrUpdate) => {
-        const upsertInput: SubscriptionGeneratorCreateInput & SubscriptionGeneratorUpdateInput = {
+    private save = async (id: number | undefined, generator: GeneratorCreateOrUpdate) => {
+        const upsertInput: GeneratorCreateInput & GeneratorUpdateInput = {
             name: generator.name,
             type: generator.type,
             content: generator.type === "json" ? JSON.stringify(generator.content) : undefined,
@@ -48,40 +48,40 @@ export default class GeneratorService {
             await this.prisma.generatorOnFilter.deleteMany({
                 where: {generatorId: id},
             })
-            return this.prisma.subscriptionGenerator.update({
+            return this.prisma.generator.update({
                 where: {id},
                 data: upsertInput,
                 include: {filters: true}
             });
         } else {
-            return this.prisma.subscriptionGenerator.create({
+            return this.prisma.generator.create({
                 data: upsertInput,
                 include: {filters: true}
             });
         }
     }
 
-    // 创建 SubscriptionGenerator
-    createSubscriptionGenerator = async (generatorCreate: SubscriptionGeneratorCreateOrUpdate) => {
+    // 创建 Generator
+    createGenerator = async (generatorCreate: GeneratorCreateOrUpdate) => {
         const savedRequestGeneratorEntity = await this.save(undefined, generatorCreate);
         return {id: savedRequestGeneratorEntity.id, ...generatorCreate};
     }
 
-    // 更新 SubscriptionGenerator
-    updateSubscriptionGenerator = async (id: number, generatorCreate: SubscriptionGeneratorCreateOrUpdate) => {
+    // 更新 Generator
+    updateGenerator = async (id: number, generatorCreate: GeneratorCreateOrUpdate) => {
         const savedEntities = await this.save(id, generatorCreate);
         return this.toContract(savedEntities);
     }
 
-    // 获取所有 SubscriptionGenerator
-    getAllSubscriptionGenerators = async () => {
-        const generatorEntities = await this.prisma.subscriptionGenerator.findMany({include: {filters: true}});
+    // 获取所有 Generator
+    getAllGenerators = async () => {
+        const generatorEntities = await this.prisma.generator.findMany({include: {filters: true}});
         return generatorEntities.map((generator) => this.toContract(generator));
     }
 
-    // 根据 ID 获取单个 SubscriptionGenerator
-    getSubscriptionGeneratorById = async (id: number) => {
-        const generator = await this.prisma.subscriptionGenerator.findUnique({
+    // 根据 ID 获取单个 Generator
+    getGeneratorById = async (id: number) => {
+        const generator = await this.prisma.generator.findUnique({
             where: {id: Number(id)},
             include: {filters: true}
         });
@@ -93,9 +93,9 @@ export default class GeneratorService {
         return this.toContract(generator);
     }
 
-    // 删除 SubscriptionGenerator
-    deleteSubscriptionGenerator = async (id: number) => {
-        await this.prisma.subscriptionGenerator.delete({
+    // 删除 Generator
+    deleteGenerator = async (id: number) => {
+        await this.prisma.generator.delete({
             where: {id: Number(id)}
         });
 
@@ -103,8 +103,8 @@ export default class GeneratorService {
     }
 
     generate = async (id: number) => {
-        const generator = await this.getSubscriptionGeneratorById(id)
-        if (!generator) throw new KnownError('SubscriptionGenerator not found');
+        const generator = await this.getGeneratorById(id)
+        if (!generator) throw new KnownError('Generator not found');
         let content: any;
         switch (generator.type) {
             case "json":
@@ -114,7 +114,7 @@ export default class GeneratorService {
                 content = await axios.get(generator.url, {responseType: "json"}).then((res) => res.data);
                 break;
         }
-        if (!content) throw new KnownError('Fail to load subscriptionGenerator content');
+        if (!content) throw new KnownError('Fail to load generator content');
 
         const filters = await this.filterService.listFiltersById(generator.filterIds);
         let subscriptions: Subscription[] = [];
@@ -129,19 +129,19 @@ export default class GeneratorService {
             const {tag, subscriptionIds, proxyTypeFilterMode, proxyTypes, includePattern, excludePattern} = filter;
             const parsedIncludeRegex = includePattern && includePattern.length > 0 ? new RegExp(includePattern) : null;
             const parsedExcludeRegex = excludePattern && excludePattern.length > 0 ? new RegExp(excludePattern) : null;
-            const selectedSubscriptions = subscriptionIds?.map(id => subscriptionsById[id]) ?? subscriptions;
+            const selectedSubscriptions = subscriptionIds == null || subscriptionIds.length == 0 ? subscriptions : subscriptionIds.map(id => subscriptionsById[id]);
             const selectedProxies = selectedSubscriptions.flatMap(subscription =>
                 subscription.proxies
                     .filter(proxy => {
                         if (proxyTypes.length > 0 && proxyTypeFilterMode === "include" && !proxyTypes.includes(proxy.type)) return false;
                         if (proxyTypes.length > 0 && proxyTypeFilterMode === "exclude" && proxyTypes.includes(proxy.type)) return false;
                         if (parsedIncludeRegex && !parsedIncludeRegex.test(proxy.tag)) return false;
-                        if (parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag)) return false;
-                        return true;
+                        return !(parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag));
+
                     })
-                    .map(proxy => proxy.raw?.valueOf())
+                    .map(proxy => proxy)
             )
-            return {tag, type: "selector", outbounds: selectedProxies,}
+            return {tag, type: filter.type, outbounds: selectedProxies,}
         })
         if (content.outbounds) outbounds.push(...content.outbounds);
         return {...content, outbounds};
