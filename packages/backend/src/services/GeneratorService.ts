@@ -125,25 +125,24 @@ export default class GeneratorService {
             return acc;
         }, {} as Record<number, Subscription>);
 
-        const outbounds = filters.map(filter => {
+        const proxyMap = new Map<string, any>();
+        const filterGroups = filters.map(filter => {
             const {tag, subscriptionIds, proxyTypeFilterMode, proxyTypes, includePattern, excludePattern} = filter;
             const parsedIncludeRegex = includePattern && includePattern.length > 0 ? new RegExp(includePattern) : null;
             const parsedExcludeRegex = excludePattern && excludePattern.length > 0 ? new RegExp(excludePattern) : null;
             const selectedSubscriptions = subscriptionIds == null || subscriptionIds.length == 0 ? subscriptions : subscriptionIds.map(id => subscriptionsById[id]);
             const selectedProxies = selectedSubscriptions.flatMap(subscription =>
-                subscription.proxies
-                    .filter(proxy => {
-                        if (proxyTypes.length > 0 && proxyTypeFilterMode === "include" && !proxyTypes.includes(proxy.type)) return false;
-                        if (proxyTypes.length > 0 && proxyTypeFilterMode === "exclude" && proxyTypes.includes(proxy.type)) return false;
-                        if (parsedIncludeRegex && !parsedIncludeRegex.test(proxy.tag)) return false;
-                        return !(parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag));
-
-                    })
-                    .map(proxy => proxy)
-            )
-            return {tag, type: filter.type, outbounds: selectedProxies,}
-        })
-        if (content.outbounds) outbounds.push(...content.outbounds);
+                subscription.proxies.filter(proxy => {
+                    if (proxyTypes.length > 0 && proxyTypeFilterMode === "include" && !proxyTypes.includes(proxy.type)) return false;
+                    if (proxyTypes.length > 0 && proxyTypeFilterMode === "exclude" && proxyTypes.includes(proxy.type)) return false;
+                    if (parsedIncludeRegex && !parsedIncludeRegex.test(proxy.tag)) return false;
+                    return !(parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag));
+                })
+            );
+            for (const proxy of selectedProxies) proxyMap.set(proxy.tag, proxy);
+            return {tag, type: filter.type, outbounds: selectedProxies.map(p => p.tag)};
+        });
+        const outbounds = [...filterGroups, ...proxyMap.values(), ...(content.outbounds ?? [])];
         return {...content, outbounds};
 
     }
