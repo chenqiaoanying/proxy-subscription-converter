@@ -1,24 +1,23 @@
 {
-  "name": "@psc/common",
-  "version": "1.0.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+    "name": "@psc/common",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "type": "module",
+    "scripts": {
+        "dev": "tsup --watch",
+        "build": "tsup"
+    },
+    "devDependencies": {
+        "tsup": "^8.5.0",
+        "typescript": "^5.8.3",
+        "zod": "^3.25.67"
     }
-  },
-  "type": "module",
-  "scripts": {
-    "dev": "pnpm --filter @psc/common... build --watch",
-    "watch": "tsup --watch",
-    "build": "tsup"
-  },
-  "devDependencies": {
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3",
-    "zod": "^3.25.67"
-  }
 }
