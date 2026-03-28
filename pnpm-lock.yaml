@@ -65,6 +65,10 @@ importers:
         version: 5.8.3
 
   packages/common:
+    dependencies:
+      zod:
+        specifier: ^3.25.67
+        version: 3.25.67
     devDependencies:
       tsup:
         specifier: ^8.5.0
@@ -72,9 +76,6 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
-      zod:
-        specifier: ^3.25.67
-        version: 3.25.67
 
   packages/database:
     dependencies:
