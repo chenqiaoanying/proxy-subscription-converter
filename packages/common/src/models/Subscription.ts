@@ -10,7 +10,7 @@ export const DataUsageSchema = z.object({
     total: z.coerce.number(),
     upload: z.coerce.number(),
     download: z.coerce.number(),
-    expiredAt: z.coerce.date(),
+    expiredAt: z.coerce.date().optional().catch(undefined),
 });
 
 export const SubscriptionSchema = z.object({

@@ -56,20 +56,25 @@ export default class SubscriptionService {
                     throw new KnownError('响应中不存在代理信息');
                 // parse header Subscription-Userinfo like 'upload=61903278937; download=1348494238989; total=5801856991232; expire=1763742604'
                 let dataUsage;
-                if (response.headers['Subscription-Userinfo']) {
-                    const rawDataUsage = (response.headers['Subscription-Userinfo'] as string)
+                const subscriptionUserinfoHeader = response.headers['subscription-userinfo'];
+                if (subscriptionUserinfoHeader) {
+                    const rawDataUsage = (subscriptionUserinfoHeader as string)
                         .split(';')
                         .reduce((acc, item) => {
                             const [key, value] = item.trim().split('=');
                             acc[key] = value;
                             return acc;
                         }, {} as Record<string, string>);
-                    dataUsage = DataUsageSchema.parse({
-                        total: rawDataUsage.total,
-                        upload: rawDataUsage.upload,
-                        download: rawDataUsage.download,
-                        expiredAt: typeof rawDataUsage.expire != undefined && isNaN(parseInt(rawDataUsage.expire)) ? new Date(parseInt(rawDataUsage.expire) * 1000) : rawDataUsage.expire,
-                    });
+                    try {
+                        dataUsage = DataUsageSchema.parse({
+                            total: rawDataUsage.total,
+                            upload: rawDataUsage.upload,
+                            download: rawDataUsage.download,
+                            expiredAt: !isNaN(parseInt(rawDataUsage.expire)) ? parseInt(rawDataUsage.expire) * 1000 : rawDataUsage.expire,
+                        });
+                    } catch (e) {
+                        console.warn('Failed to parse Subscription-Userinfo header:', e);
+                    }
                 }
 
                 return [dataUsage, proxyList];

@@ -49,7 +49,7 @@ function addSubscription() {
                 <span>{{ item.name }}</span>
             </template>
             <div class="card-content">
-                <el-progress v-if="item.dataUsage" type="line" :percentage="((item.dataUsage?.download + item.dataUsage?.upload) / item.dataUsage?.total) * 100" />
+                <el-progress v-if="item.dataUsage" type="line" :percentage="(((item.dataUsage?.download + item.dataUsage?.upload) / item.dataUsage?.total) * 100).toFixed(0)" />
                 <el-progress v-else type="line" :percentage="100" />
             </div>
             <template #footer>
