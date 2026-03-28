@@ -102,7 +102,7 @@ export default class GeneratorService {
         return id;
     }
 
-    generate = async (id: number) => {
+    generate = async (id: number, refresh = false) => {
         const generator = await this.getGeneratorById(id)
         if (!generator) throw new KnownError('Generator not found');
         let content: any;
@@ -117,9 +117,19 @@ export default class GeneratorService {
         if (!content) throw new KnownError('Fail to load generator content');
 
         const filters = await this.filterService.listFiltersById(generator.filterIds);
+        const allSubscriptions = await this.subscriptionService.listSubscription();
+        const needsAllSubscriptions = !!filters.find(filter => filter.subscriptionIds == undefined || filter.subscriptionIds.length === 0);
+        const involvedIds = needsAllSubscriptions
+            ? allSubscriptions.map(s => s.id)
+            : [...new Set(filters.flatMap(filter => filter.subscriptionIds ?? []))];
+
+        if (refresh) {
+            await Promise.all(involvedIds.map(sid => this.subscriptionService.getSubscription(sid, true)));
+        }
+
         let subscriptions: Subscription[] = [];
-        if (filters.find(filter => filter.subscriptionIds == undefined || filter.subscriptionIds.length === 0)) subscriptions = await this.subscriptionService.listSubscription();
-        else subscriptions = await this.subscriptionService.listSubscriptionsById(filters.flatMap(filter => filter.subscriptionIds ?? []));
+        if (needsAllSubscriptions) subscriptions = refresh ? await this.subscriptionService.listSubscription() : allSubscriptions;
+        else subscriptions = await this.subscriptionService.listSubscriptionsById(involvedIds);
         const subscriptionsById = subscriptions.reduce((acc, subscription) => {
             acc[subscription.id] = subscription;
             return acc;

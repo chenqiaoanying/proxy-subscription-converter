@@ -6,7 +6,7 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import type { Generator } from "@psc/common";
 import { getErrorMessage } from "@psc/common";
-import { Delete, Edit, View } from "@element-plus/icons-vue";
+import { Delete, Edit, Link, View } from "@element-plus/icons-vue";
 import MonacoEditor from "@components/MonacoEditor.vue";
 
 const drawerVisible = ref(false);
@@ -21,6 +21,13 @@ onMounted(() => {
 });
 
 const selectedGenerator = ref<DeepReadonly<Generator> | undefined>(undefined);
+
+function copyLink(id: number) {
+    const url = `${window.location.origin}/api/generator/generate/${id}?refresh=true`;
+    navigator.clipboard.writeText(url).then(() => {
+        ElMessage.success("订阅链接已复制");
+    });
+}
 
 function preview(id: number) {
     subscriptionGeneratorStore
@@ -52,6 +59,7 @@ function preview(id: number) {
                 <span>{{ item.name }}</span>
             </template>
             <template #footer>
+                <el-button @click="copyLink(item.id)" type="primary" :icon="Link" />
                 <el-button @click="preview(item.id)" type="primary" :icon="View" />
                 <el-button
                     @click="

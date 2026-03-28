@@ -56,9 +56,9 @@ export default class GeneratorController {
     generate = async (req: express.Request, res: express.Response) => {
         const id = Number(req.params.id);
         if (Number.isNaN(id)) throw new KnownError(`Invalid id:${id}`);
-        const generated = await this.generatorService.generate(id);
+        const refresh = req.query.refresh === 'true';
+        const generated = await this.generatorService.generate(id, refresh);
         res.status(200).send(generated);
-
     }
 
     get router() {
