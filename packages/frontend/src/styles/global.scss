@@ -84,6 +84,7 @@ button {
   //text-align: center;
   width: 100%;
   height: 96vh;
+  --page-height: calc(96vh - 4vh); // app height minus top + bottom padding
 }
 
 //html, body {

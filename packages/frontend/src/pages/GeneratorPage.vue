@@ -5,7 +5,7 @@ import { useGeneratorStore, useFilterStore, useSubscriptionStore } from "@/store
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import type { Generator } from "@psc/common";
-import { getErrorMessage } from "@psc/common";
+import { getErrorMessage, applyFilterToProxies } from "@psc/common";
 import { Delete, Edit, Link, View, Plus } from "@element-plus/icons-vue";
 import MonacoEditor from "@components/MonacoEditor.vue";
 import { formatBytes } from "@/utils.ts";
@@ -55,10 +55,12 @@ function generatorStats(generator: DeepReadonly<Generator>) {
 
     const involvedSubs = subscriptions.value.filter(s => involvedIds.includes(s.id));
 
-    // distinct proxy count by tag across all involved subscriptions
-    const tagSet = new Set<string>();
-    for (const sub of involvedSubs) {
-        for (const proxy of sub.proxies) tagSet.add(proxy.tag);
+    // proxies matched by all filters (union by tag)
+    const matchedTagSet = new Set<string>();
+    for (const f of genFilters) {
+        for (const proxy of applyFilterToProxies(f!, subscriptions.value)) {
+            matchedTagSet.add(proxy.tag);
+        }
     }
 
     // remaining traffic sum
@@ -84,7 +86,8 @@ function generatorStats(generator: DeepReadonly<Generator>) {
     }
 
     return {
-        proxyCount: tagSet.size,
+        proxyCount: matchedTagSet.size,
+        filterCount: generator.filterIds.length,
         usagePercent: hasTrafficData ? Math.min(100, +((usedBytes / totalBytes) * 100).toFixed(1)) : null,
         remainingBytes: hasTrafficData ? remainingBytes : null,
         expiredAt: maxExpiredAt,
@@ -108,12 +111,18 @@ function addGenerator() {
                 <span>{{ item.name }}</span>
             </template>
             <div class="card-content">
-                <el-statistic title="原始代理数" :value="generatorStats(item).proxyCount" />
+                <el-progress v-if="generatorStats(item).usagePercent !== null" type="line" text-inside :stroke-width="22" :percentage="generatorStats(item).usagePercent!" :color="(pct: number) => (pct >= 80 ? '#f56c6c' : '#409eff')" :format="() => '剩余 ' + formatBytes(generatorStats(item).remainingBytes!)" />
+                <div class="card-stats">
+                    <span class="stat-label">可用代理</span>
+                    <span class="stat-value">{{ generatorStats(item).proxyCount }}</span>
+                    <span class="stat-label">分组</span>
+                    <span class="stat-value">{{ generatorStats(item).filterCount }}</span>
+                    <template v-if="generatorStats(item).expiredAt">
+                        <span class="stat-label">到期</span>
+                        <span class="stat-value">{{ generatorStats(item).expiredAt!.toLocaleDateString() }}</span>
+                    </template>
+                </div>
             </div>
-            <template v-if="generatorStats(item).usagePercent !== null">
-                <el-progress type="line" text-inside :stroke-width="22" :percentage="generatorStats(item).usagePercent!" :color="(pct: number) => (pct >= 80 ? '#f56c6c' : '#409eff')" :format="() => '剩余 ' + formatBytes(generatorStats(item).remainingBytes!)" />
-            </template>
-            <el-text v-if="generatorStats(item).expiredAt" type="info" size="small">到期: {{ generatorStats(item).expiredAt!.toLocaleDateString() }}</el-text>
             <template #footer>
                 <el-button @click="copyLink(item.id)" type="primary" :icon="Link" />
                 <el-button @click="preview(item.id)" type="primary" :icon="View" />
@@ -139,14 +148,42 @@ function addGenerator() {
 </template>
 
 <style scoped lang="scss">
+.el-row {
+    align-items: stretch;
+}
+
 .el-card {
     width: 300px;
     margin: 10px;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.el-card__body) {
+        flex: 1;
+    }
 
     .card-content {
         display: flex;
-        gap: 24px;
-        padding: 8px 0;
+        flex-direction: column;
+        gap: 8px;
+        padding: 4px 0;
+
+        .card-stats {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 12px;
+            row-gap: 4px;
+            font-size: 13px;
+
+            .stat-label {
+                color: var(--el-text-color-secondary);
+                white-space: nowrap;
+            }
+
+            .stat-value {
+                color: var(--el-text-color-primary);
+            }
+        }
     }
 }
 
