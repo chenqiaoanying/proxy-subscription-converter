@@ -13,7 +13,7 @@
     "type": "module",
     "scripts": {
         "dev": "tsup --watch",
-        "build": "tsup"
+        "build": "tsup --clean"
     },
     "dependencies": {
         "type-fest": "^5.5.0",
