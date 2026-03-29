@@ -129,7 +129,7 @@ function addGenerator() {
             </template>
         </el-card>
     </el-row>
-    <GeneratorDrawer v-model:visible="drawerVisible" :to-update-subscription-generator="selectedGenerator" />
+    <GeneratorDrawer v-model:visible="drawerVisible" :to-update-generator="selectedGenerator" />
     <el-dialog v-model="previewVisible" width="50vh">
         <template #header>预览</template>
         <div style="height: 50vh">
