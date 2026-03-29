@@ -23,10 +23,30 @@ const form = reactive({
 
 const loading = ref(false)
 const resultSummary = ref<{ text: string; type: 'success' | 'warning' | 'error' }[]>([])
+const onlyAvailable = ref(false)
 
 // Track which regions had existing filters when the dialog was opened
 const originalSelectedCodes = ref<string[]>([])
 const originalFilterMap = ref<Map<string, number>>(new Map()) // code → filterId
+
+const availableRegionCodes = computed<Set<string>>(() => {
+    const selectedSubs = form.selectAllSubscriptions
+        ? subscriptions.value
+        : subscriptions.value.filter(s => form.subscriptionIds.includes(s.id))
+    const allTags = selectedSubs.flatMap(s => s.proxies.map(p => p.tag))
+    const result = new Set<string>()
+    for (const region of REGIONS) {
+        const pattern = new RegExp(region.keywords.join('|'))
+        if (allTags.some(tag => pattern.test(tag))) {
+            result.add(region.code)
+        }
+    }
+    return result
+})
+
+const visibleRegions = computed(() =>
+    onlyAvailable.value ? REGIONS.filter(r => availableRegionCodes.value.has(r.code)) : REGIONS
+)
 
 interface PreviewItem {
     tag: string
@@ -194,15 +214,18 @@ async function onConfirm() {
 
             <el-form-item label="选择地区">
                 <div>
+                    <div style="margin-bottom: 6px">
+                        <el-checkbox v-model="onlyAvailable">只显示有代理的地区</el-checkbox>
+                    </div>
                     <el-checkbox-group v-model="form.selectedRegionCodes" class="region-grid">
                         <el-checkbox
-                            v-for="r in REGIONS"
+                            v-for="r in visibleRegions"
                             :key="r.code"
                             :value="r.code"
                         >{{ r.label }}</el-checkbox>
                     </el-checkbox-group>
                     <div style="margin-top: 6px">
-                        <el-button link size="small" @click="form.selectedRegionCodes = REGIONS.map(r => r.code)">全选</el-button>
+                        <el-button link size="small" @click="form.selectedRegionCodes = visibleRegions.map(r => r.code)">全选</el-button>
                         <el-button link size="small" @click="form.selectedRegionCodes = []">清空</el-button>
                     </div>
                 </div>
