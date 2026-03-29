@@ -5,9 +5,8 @@ import { useFilterStore, useSubscriptionStore } from "@/stores.ts";
 import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
 import type { Filter } from "@psc/common";
-import { FilterSchema } from "@psc/common";
+import { FilterSchema, applyFilterToProxies } from "@psc/common";
 import { Delete, Edit, Plus } from "@element-plus/icons-vue";
-import { applyFilterToProxies } from "@/utils.ts";
 
 const filterDialogVisible = ref(false);
 const filterStore = useFilterStore();
@@ -26,7 +25,7 @@ onMounted(() => {
 const toUpdateFilter = ref<Filter | undefined>(undefined);
 
 function proxyCount(filter: DeepReadonly<Filter>): number {
-    return applyFilterToProxies(filter as any, subscriptions.value).length;
+    return applyFilterToProxies(filter, subscriptions.value.filter(sub => sub.id == filter.id)).length;
 }
 
 function editFilter(filter: DeepReadonly<Filter>) {

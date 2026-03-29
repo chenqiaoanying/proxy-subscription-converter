@@ -16,6 +16,7 @@
         "build": "tsup"
     },
     "dependencies": {
+        "type-fest": "^5.5.0",
         "zod": "^3.25.67"
     },
     "devDependencies": {

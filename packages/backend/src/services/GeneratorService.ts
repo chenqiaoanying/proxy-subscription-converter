@@ -2,6 +2,7 @@ import {PrismaClient, Prisma} from '@psc/database';
 import {singleton} from "tsyringe";
 import * as common from "@psc/common";
 import type {GeneratorCreateOrUpdate, Subscription} from "@psc/common";
+import {applyFilterToProxies} from "@psc/common";
 import GeneratorCreateInput = Prisma.GeneratorCreateInput;
 import GeneratorUpdateInput = Prisma.GeneratorUpdateInput;
 import GeneratorGetPayload = Prisma.GeneratorGetPayload;
@@ -130,27 +131,11 @@ export default class GeneratorService {
         let subscriptions: Subscription[] = [];
         if (needsAllSubscriptions) subscriptions = refresh ? await this.subscriptionService.listSubscription() : allSubscriptions;
         else subscriptions = await this.subscriptionService.listSubscriptionsById(involvedIds);
-        const subscriptionsById = subscriptions.reduce((acc, subscription) => {
-            acc[subscription.id] = subscription;
-            return acc;
-        }, {} as Record<number, Subscription>);
-
         const proxyMap = new Map<string, any>();
         const filterGroups = filters.map(filter => {
-            const {tag, subscriptionIds, proxyTypeFilterMode, proxyTypes, includePattern, excludePattern} = filter;
-            const parsedIncludeRegex = includePattern && includePattern.length > 0 ? new RegExp(includePattern) : null;
-            const parsedExcludeRegex = excludePattern && excludePattern.length > 0 ? new RegExp(excludePattern) : null;
-            const selectedSubscriptions = subscriptionIds == null || subscriptionIds.length == 0 ? subscriptions : subscriptionIds.map(id => subscriptionsById[id]);
-            const selectedProxies = selectedSubscriptions.flatMap(subscription =>
-                subscription.proxies.filter(proxy => {
-                    if (proxyTypes.length > 0 && proxyTypeFilterMode === "include" && !proxyTypes.includes(proxy.type)) return false;
-                    if (proxyTypes.length > 0 && proxyTypeFilterMode === "exclude" && proxyTypes.includes(proxy.type)) return false;
-                    if (parsedIncludeRegex && !parsedIncludeRegex.test(proxy.tag)) return false;
-                    return !(parsedExcludeRegex && parsedExcludeRegex.test(proxy.tag));
-                })
-            );
+            const selectedProxies = applyFilterToProxies(filter, subscriptions);
             for (const proxy of selectedProxies) proxyMap.set(proxy.tag, proxy);
-            return {tag, type: filter.type, outbounds: selectedProxies.map(p => p.tag)};
+            return {tag: filter.tag, type: filter.type, outbounds: selectedProxies.map(p => p.tag)};
         });
         const outbounds = [...filterGroups, ...proxyMap.values(), ...(content.outbounds ?? [])];
         return {...content, outbounds};
