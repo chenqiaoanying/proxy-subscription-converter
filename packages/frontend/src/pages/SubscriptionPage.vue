@@ -4,8 +4,9 @@ import SubscriptionDialog from "@components/SubscriptionDialog.vue";
 import { useSubscriptionStore } from "@/stores.ts";
 import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
-import { Delete, Edit, Refresh } from "@element-plus/icons-vue";
+import { Delete, Edit, Refresh, Plus } from "@element-plus/icons-vue";
 import type { Subscription } from "@psc/common";
+import { formatBytes } from "@/utils.ts";
 
 const store = useSubscriptionStore();
 const subscriptions = storeToRefs(store).subscriptions;
@@ -40,7 +41,7 @@ function addSubscription() {
 </script>
 <template>
     <el-row justify="end">
-        <el-button type="primary" @click="addSubscription">添加订阅链接</el-button>
+        <el-button type="primary" @click="addSubscription" :icon="Plus" circle></el-button>
     </el-row>
     <el-divider />
     <el-row>
@@ -49,8 +50,9 @@ function addSubscription() {
                 <span>{{ item.name }}</span>
             </template>
             <div class="card-content">
-                <el-progress v-if="item.dataUsage" type="line" :percentage="(((item.dataUsage?.download + item.dataUsage?.upload) / item.dataUsage?.total) * 100).toFixed(0)" />
-                <el-progress v-else type="line" :percentage="100" />
+                <el-progress v-if="item.dataUsage" type="line" text-inside :stroke-width="22" :percentage="Math.min(100, +(((item.dataUsage.download + item.dataUsage.upload) / item.dataUsage.total) * 100).toFixed(1))" :color="(pct: number) => (pct >= 80 ? '#f56c6c' : '#409eff')" :format="() => '剩余 ' + formatBytes(item.dataUsage!.total - item.dataUsage!.upload - item.dataUsage!.download)" />
+                <el-progress v-else type="line" text-inside :stroke-width="22" :percentage="100" :format="() => '无流量信息'" status="warning" />
+                <el-text v-if="item.dataUsage?.expiredAt" type="info" size="small">到期: {{ item.dataUsage.expiredAt.toLocaleDateString() }}</el-text>
             </div>
             <template #footer>
                 <el-button type="primary" @click="refreshSubscription(item.id)" :icon="Refresh" />
@@ -66,5 +68,10 @@ function addSubscription() {
 .el-card {
     width: 300px;
     margin: 10px;
+}
+
+:deep(.el-progress-bar__innerText) {
+    color: #fff;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
 }
 </style>
