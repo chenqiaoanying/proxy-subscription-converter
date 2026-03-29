@@ -5,7 +5,6 @@ import type {GeneratorCreateOrUpdate, Subscription} from "@psc/common";
 import {applyFilterToProxies} from "@psc/common";
 import GeneratorCreateInput = Prisma.GeneratorCreateInput;
 import GeneratorUpdateInput = Prisma.GeneratorUpdateInput;
-import GeneratorGetPayload = Prisma.GeneratorGetPayload;
 import {KnownError} from "../errors/KnownError.js";
 import axios from "axios";
 import FilterService from "./FilterService.js";
@@ -20,14 +19,13 @@ export default class GeneratorService {
     ) {
     }
 
-    private toContract(generatorEntity: GeneratorGetPayload<{ include: { filters: true } }>) {
+    private toContract(generatorEntity: { id: number; name: string; type: string; content: any; url: string | null }) {
         return common.GeneratorSchema.parse({
             id: generatorEntity.id,
             name: generatorEntity.name,
             type: generatorEntity.type,
             content: generatorEntity.content,
             url: generatorEntity.url,
-            filterIds: generatorEntity.filters.map((filter) => filter.filterId),
         });
     }
 
@@ -37,27 +35,15 @@ export default class GeneratorService {
             type: generator.type,
             content: generator.type === "json" ? JSON.stringify(generator.content) : undefined,
             url: generator.type === "url" ? generator.url : undefined,
-            filters: {
-                createMany: {
-                    data: generator.filterIds?.map(filterId => ({
-                        filterId
-                    })) ?? []
-                }
-            }
         };
         if (id) {
-            await this.prisma.generatorOnFilter.deleteMany({
-                where: {generatorId: id},
-            })
             return this.prisma.generator.update({
                 where: {id},
                 data: upsertInput,
-                include: {filters: true}
             });
         } else {
             return this.prisma.generator.create({
                 data: upsertInput,
-                include: {filters: true}
             });
         }
     }
@@ -65,7 +51,7 @@ export default class GeneratorService {
     // 创建 Generator
     createGenerator = async (generatorCreate: GeneratorCreateOrUpdate) => {
         const savedRequestGeneratorEntity = await this.save(undefined, generatorCreate);
-        return {id: savedRequestGeneratorEntity.id, ...generatorCreate};
+        return this.toContract(savedRequestGeneratorEntity);
     }
 
     // 更新 Generator
@@ -76,7 +62,7 @@ export default class GeneratorService {
 
     // 获取所有 Generator
     getAllGenerators = async () => {
-        const generatorEntities = await this.prisma.generator.findMany({include: {filters: true}});
+        const generatorEntities = await this.prisma.generator.findMany();
         return generatorEntities.map((generator) => this.toContract(generator));
     }
 
@@ -84,7 +70,6 @@ export default class GeneratorService {
     getGeneratorById = async (id: number) => {
         const generator = await this.prisma.generator.findUnique({
             where: {id: Number(id)},
-            include: {filters: true}
         });
 
         if (!generator) {
@@ -117,7 +102,17 @@ export default class GeneratorService {
         }
         if (!content) throw new KnownError('Fail to load generator content');
 
-        const filters = await this.filterService.listFiltersById(generator.filterIds);
+        // Auto-detect referenced filters from selector/urltest outbounds in the template
+        const templateOutbounds: any[] = content.outbounds ?? [];
+        const referencedTags = new Set<string>(
+            templateOutbounds
+                .filter((o: any) => o.type === 'selector' || o.type === 'urltest')
+                .flatMap((o: any) => o.outbounds ?? [])
+        );
+
+        const allFilters = await this.filterService.listFilters();
+        const filters = allFilters.filter(f => referencedTags.has(f.tag));
+
         const allSubscriptions = await this.subscriptionService.listSubscription();
         const needsAllSubscriptions = !!filters.find(filter => filter.subscriptionIds == undefined || filter.subscriptionIds.length === 0);
         const involvedIds = needsAllSubscriptions
@@ -139,6 +134,5 @@ export default class GeneratorService {
         });
         const outbounds = [...filterGroups, ...proxyMap.values(), ...(content.outbounds ?? [])];
         return {...content, outbounds};
-
     }
 }

@@ -3,15 +3,11 @@ import { type DeepReadonly, reactive } from "vue";
 import MonacoEditor from "@components/MonacoEditor.vue";
 import * as monaco from "monaco-editor";
 import singboxSchema from "@/schemas/sing-box.schema.json";
-import { useFilterStore, useGeneratorStore } from "@/stores.ts";
-import { storeToRefs } from "pinia";
+import { useGeneratorStore } from "@/stores.ts";
 import { ElMessage } from "element-plus";
 import type { Generator } from "@psc/common";
 import { GeneratorCreateOrUpdateSchema, getErrorMessage } from "@psc/common";
 
-const filterStore = useFilterStore();
-const filterStoreRefs = storeToRefs(filterStore);
-const filters = filterStoreRefs.filters;
 const subscriptionGeneratorStore = useGeneratorStore();
 
 const { toUpdateGenerator = undefined } = defineProps<{
@@ -20,7 +16,6 @@ const { toUpdateGenerator = undefined } = defineProps<{
 
 const subscriptionGenerator = reactive({
     name: "",
-    filterIds: [] as number[],
     type: "url",
     url: "",
     content: "",
@@ -44,13 +39,11 @@ function onEditorMount() {
 
 function onOpen() {
     subscriptionGenerator.name = "";
-    subscriptionGenerator.filterIds = [];
     subscriptionGenerator.type = "url";
     subscriptionGenerator.url = "";
     subscriptionGenerator.content = "";
     if (toUpdateGenerator) {
         subscriptionGenerator.name = toUpdateGenerator.name;
-        subscriptionGenerator.filterIds = toUpdateGenerator.filterIds.map(id => id);
         subscriptionGenerator.type = toUpdateGenerator.type;
         switch (toUpdateGenerator.type) {
             case "url":
@@ -105,11 +98,6 @@ function onConfirm() {
             <el-form>
                 <el-form-item>
                     <el-input placeholder="请输入订阅名称" v-model="subscriptionGenerator.name" />
-                </el-form-item>
-                <el-form-item>
-                    <el-select v-model="subscriptionGenerator.filterIds" multiple placeholder="Select">
-                        <el-option v-for="item in filters" :key="item.id" :label="item.tag" :value="item.id" />
-                    </el-select>
                 </el-form-item>
                 <el-form-item>
                     <el-select v-model="subscriptionGenerator.type" placeholder="请选择模板类型">

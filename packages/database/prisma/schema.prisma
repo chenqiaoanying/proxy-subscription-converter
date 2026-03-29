@@ -47,7 +47,6 @@ model Filter {
   tag                     String    @unique
   type                    String
   subscriptions     FilterOnSubscription[]
-  generators      GeneratorOnFilter[]
   proxyTypeFilterMode     String
   proxyTypes              String?
   excludeRegex            String?
@@ -63,19 +62,10 @@ model FilterOnSubscription {
   @@id([filterId, subscriptionId])
 }
 
-model GeneratorOnFilter {
-  generatorId     Int
-  filterId        Int
-  generator       Generator @relation(fields: [generatorId], references: [id], onDelete: Cascade)
-  filter          Filter               @relation(fields: [filterId], references: [id], onDelete: Cascade)
-  @@id([generatorId, filterId])
-}
-
 model Generator {
   id            Int       @id @default(autoincrement())
   name          String    @unique
   type          String
   content       Json?
   url           String?
-  filters       GeneratorOnFilter[]
 }

@@ -48,17 +48,24 @@ function preview(id: number) {
 }
 
 function generatorStats(generator: DeepReadonly<Generator>) {
-    const genFilters = generator.filterIds.map(id => filters.value.find(f => f.id === id)).filter(Boolean);
+    // Auto-detect referenced filters from selector/urltest outbounds in the template
+    const templateOutbounds: any[] = generator.type === 'json' ? (generator.content as any)?.outbounds ?? [] : [];
+    const referencedTags = new Set<string>(
+        templateOutbounds
+            .filter((o: any) => o.type === 'selector' || o.type === 'urltest')
+            .flatMap((o: any) => o.outbounds ?? [])
+    );
+    const genFilters = filters.value.filter(f => referencedTags.has(f.tag));
 
-    const needsAll = genFilters.some(f => !f!.subscriptionIds || f!.subscriptionIds.length === 0);
-    const involvedIds = needsAll ? subscriptions.value.map(s => s.id) : [...new Set(genFilters.flatMap(f => f!.subscriptionIds ?? []))];
+    const needsAll = genFilters.some(f => !f.subscriptionIds || f.subscriptionIds.length === 0);
+    const involvedIds = needsAll ? subscriptions.value.map(s => s.id) : [...new Set(genFilters.flatMap(f => f.subscriptionIds ?? []))];
 
     const involvedSubs = subscriptions.value.filter(s => involvedIds.includes(s.id));
 
     // proxies matched by all filters (union by tag)
     const matchedTagSet = new Set<string>();
     for (const f of genFilters) {
-        for (const proxy of applyFilterToProxies(f!, subscriptions.value)) {
+        for (const proxy of applyFilterToProxies(f, subscriptions.value)) {
             matchedTagSet.add(proxy.tag);
         }
     }
@@ -86,8 +93,8 @@ function generatorStats(generator: DeepReadonly<Generator>) {
     }
 
     return {
-        proxyCount: matchedTagSet.size,
-        filterCount: generator.filterIds.length,
+        proxyCount: generator.type === 'json' ? matchedTagSet.size : null,
+        filterCount: generator.type === 'json' ? genFilters.length : null,
         usagePercent: hasTrafficData ? Math.min(100, +((usedBytes / totalBytes) * 100).toFixed(1)) : null,
         remainingBytes: hasTrafficData ? remainingBytes : null,
         expiredAt: maxExpiredAt,
@@ -113,10 +120,12 @@ function addGenerator() {
             <div class="card-content">
                 <el-progress v-if="generatorStats(item).usagePercent !== null" type="line" text-inside :stroke-width="22" :percentage="generatorStats(item).usagePercent!" :color="(pct: number) => (pct >= 80 ? '#f56c6c' : '#409eff')" :format="() => '剩余 ' + formatBytes(generatorStats(item).remainingBytes!)" />
                 <div class="card-stats">
-                    <span class="stat-label">可用代理</span>
-                    <span class="stat-value">{{ generatorStats(item).proxyCount }}</span>
-                    <span class="stat-label">分组</span>
-                    <span class="stat-value">{{ generatorStats(item).filterCount }}</span>
+                    <template v-if="generatorStats(item).proxyCount !== null">
+                        <span class="stat-label">可用代理</span>
+                        <span class="stat-value">{{ generatorStats(item).proxyCount }}</span>
+                        <span class="stat-label">分组</span>
+                        <span class="stat-value">{{ generatorStats(item).filterCount }}</span>
+                    </template>
                     <template v-if="generatorStats(item).expiredAt">
                         <span class="stat-label">到期</span>
                         <span class="stat-value">{{ generatorStats(item).expiredAt!.toLocaleDateString() }}</span>

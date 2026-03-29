@@ -3,7 +3,6 @@ import { z } from 'zod/v4'
 const Base = {
     id: z.number(),
     name: z.string().nonempty(),
-    filterIds: z.array(z.number()),
 }
 
 const Json = z.object({
