@@ -2,7 +2,7 @@
   "name": "proxy-subscribe-converter",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n COMMON,FRONTEND,BACKEND -c yellow,blue,green \"pnpm --filter @psc/common dev\" \"pnpm --filter @psc/frontend dev\" \"pnpm --filter @psc/backend dev\"",
+    "dev": "pnpm --filter @psc/common build && concurrently -k -n COMMON,FRONTEND,BACKEND -c yellow,blue,green \"pnpm --filter @psc/common dev\" \"pnpm --filter @psc/frontend dev\" \"pnpm --filter @psc/backend dev\"",
     "build": "pnpm -r run build",
     "start": "pnpm --filter backend start"
   },
