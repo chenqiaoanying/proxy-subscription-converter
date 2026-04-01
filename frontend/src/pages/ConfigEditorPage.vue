@@ -6,6 +6,7 @@ import { type ConfigData, ConfigDataSchema, emptyConfigData } from '@/types'
 import SubscriptionsPanel from '@/components/SubscriptionsPanel.vue'
 import FiltersPanel from '@/components/FiltersPanel.vue'
 import TemplatePanel from '@/components/TemplatePanel.vue'
+import MonacoEditor from '@/components/MonacoEditor.vue'
 
 const props = defineProps<{ configId: string | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -19,6 +20,8 @@ const saving = ref(false)
 const loading = ref(false)
 const generating = ref(false)
 const configUrl = ref('')
+const previewVisible = ref(false)
+const previewJson = ref('')
 const dirty = ref(false)
 let skipDirtyWatch = false
 
@@ -105,6 +108,19 @@ async function handleGenerate() {
   try {
     const result = await store.generate(configData.value)
     downloadJson(result, 'singbox-config.json')
+  } catch (e) {
+    ElMessage.error('Generate failed: ' + String(e))
+  } finally {
+    generating.value = false
+  }
+}
+
+async function handlePreview() {
+  generating.value = true
+  try {
+    const result = await store.generate(configData.value)
+    previewJson.value = JSON.stringify(result, null, 2)
+    previewVisible.value = true
   } catch (e) {
     ElMessage.error('Generate failed: ' + String(e))
   } finally {
@@ -206,7 +222,11 @@ function copyToClipboard(text: string) {
             <el-text type="info">
               Fetch your subscriptions, apply filters, and download the merged sing-box config.
             </el-text>
-            <div style="margin-top: 16px">
+            <div style="margin-top: 16px; display: flex; gap: 12px">
+              <el-button type="primary" :loading="generating" @click="handlePreview">
+                <el-icon><View /></el-icon>
+                Preview
+              </el-button>
               <el-button type="success" :loading="generating" @click="handleGenerate">
                 <el-icon><Download /></el-icon>
                 Generate &amp; Download
@@ -287,5 +307,22 @@ function copyToClipboard(text: string) {
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- Preview dialog -->
+    <el-dialog
+      v-model="previewVisible"
+      title="Generated Sing-box Config"
+      width="80%"
+      top="5vh"
+      destroy-on-close
+    >
+      <MonacoEditor
+        :model-value="previewJson"
+        language="json"
+        :readonly="true"
+        height="70vh"
+        style="border: 1px solid #dcdfe6; border-radius: 4px"
+      />
+    </el-dialog>
   </div>
 </template>
