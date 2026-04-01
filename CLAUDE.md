@@ -15,17 +15,20 @@ cd frontend && npm run dev
 cd frontend && npm run build
 
 # Run backend dev server (port 8000)
-# Use uv or activate a venv first: uv venv .venv && uv pip install -r api/requirements.txt
-.venv/bin/uvicorn api.index:app --reload --port 8000
+uv run uvicorn api.index:app --reload --port 8000
 
-# Install Python dependencies (uv recommended)
-uv venv .venv && uv pip install -r api/requirements.txt
+# Install Python dependencies
+uv sync
+
+# Add a new Python dependency (then regenerate for Vercel)
+uv add <package>
+uv export --no-hashes --no-dev -o api/requirements.txt
 
 # Run database migration (only needed if DATABASE_URL is configured)
-DATABASE_URL=postgresql+asyncpg://... alembic -c alembic/alembic.ini upgrade head
+DATABASE_URL=postgresql+asyncpg://... uv run alembic -c alembic/alembic.ini upgrade head
 
 # Create a new migration after model changes
-DATABASE_URL=postgresql+asyncpg://... alembic -c alembic/alembic.ini revision --autogenerate -m "description"
+DATABASE_URL=postgresql+asyncpg://... uv run alembic -c alembic/alembic.ini revision --autogenerate -m "description"
 ```
 
 There are no test scripts configured.
