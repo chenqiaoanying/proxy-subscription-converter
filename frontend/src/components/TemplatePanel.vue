@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, watch } from 'vue'
 import MonacoEditor from './MonacoEditor.vue'
 import * as monaco from 'monaco-editor'
 import singboxSchema from "@/schemas/sing-box.schema.json";
@@ -20,6 +20,19 @@ const inlineValue = ref(
 )
 
 const inlineError = ref('')
+
+watch(
+  () => model.value,
+  (newVal) => {
+    if (typeof newVal === 'string') {
+      mode.value = 'url'
+      urlValue.value = newVal
+    } else if (typeof newVal === 'object' && newVal !== null) {
+      mode.value = 'inline'
+      inlineValue.value = JSON.stringify(newVal, null, 2)
+    }
+  }
+)
 
 function onEditorMount() {
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
