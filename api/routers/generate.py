@@ -99,20 +99,23 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
     else:
         template = {}
 
-    generated_outbounds: list[dict[str, Any]] = []
+    generated_groups: list[dict[str, Any]] = []
+    all_proxy_outbounds: dict[str, dict[str, Any]] = {}  # tag -> proxy dict, deduped
 
     # Filter outbound groups
     for f in sub_cfg.filters:
         source_names = f.subscriptions if f.subscriptions else list(proxy_map.keys())
         proxies = [p for n in source_names for p in proxy_map.get(n, [])]
         proxies = _apply_filter(proxies, f)
-        generated_outbounds.append(
-            {"tag": f.tag, "type": f.type, "outbounds": proxies}
-        )
+        proxy_tags = [p["tag"] for p in proxies if "tag" in p]
+        generated_groups.append({"tag": f.tag, "type": f.type, "outbounds": proxy_tags})
+        for p in proxies:
+            if "tag" in p:
+                all_proxy_outbounds[p["tag"]] = p
 
-    # Prepend generated groups to template outbounds
+    # Prepend generated groups + individual proxy entries to template outbounds
     existing_outbounds: list[Any] = template.get("outbounds", [])
-    template["outbounds"] = generated_outbounds + existing_outbounds
+    template["outbounds"] = generated_groups + list(all_proxy_outbounds.values()) + existing_outbounds
 
     return template
 
