@@ -69,9 +69,6 @@ const entries = () => Object.entries(model.value)
           <el-text truncated>{{ s.url }}</el-text>
         </template>
       </el-table-column>
-      <el-table-column label="Group Tag" width="130">
-        <template #default="{ row: [, s] }">{{ s.tag ?? '—' }}</template>
-      </el-table-column>
       <el-table-column label="User-Agent" width="130">
         <template #default="{ row: [, s] }">{{ s.user_agent ?? '—' }}</template>
       </el-table-column>
@@ -103,10 +100,6 @@ const entries = () => Object.entries(model.value)
         </el-form-item>
         <el-form-item label="URL" required>
           <el-input v-model="formData.url" placeholder="https://..." />
-        </el-form-item>
-        <el-form-item label="Group Tag">
-          <el-input v-model="formData.tag" placeholder="Optional: creates an outbound group" clearable />
-          <el-text type="info" size="small">If set, creates a selector outbound group with all proxies from this subscription</el-text>
         </el-form-item>
         <el-form-item label="User-Agent">
           <el-input v-model="formData.user_agent" placeholder="e.g. clashmeta" clearable />

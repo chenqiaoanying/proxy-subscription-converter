@@ -4,7 +4,7 @@ A serverless web app that aggregates sing-box proxy subscriptions, lets you defi
 
 ## Features
 
-- Manage multiple proxy subscription URLs with custom names and group tags
+- Manage multiple proxy subscription URLs with custom names
 - Define filters with include/exclude rules (pattern, proxy type, regex, case sensitivity)
 - Generate sing-box configs on demand — proxies are always fetched live (no caching)
 - Monaco editor for inline JSON template editing with sing-box schema validation
@@ -66,7 +66,6 @@ Set up the database (see below), save your config via the UI, and point sing-box
     "subscriptions": {
       "my_airport": {
         "url": "https://example.com/subscribe?token=xxx",
-        "tag": "Airport",
         "enabled": true,
         "user_agent": "clashmeta"
       }

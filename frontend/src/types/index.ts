@@ -22,7 +22,6 @@ export const FilterConfigSchema = z.object({
 
 export const SubscriptionConfigSchema = z.object({
   url: z.string(),
-  tag: z.string().nullable().optional(),
   enabled: z.boolean().default(true),
   user_agent: z.string().nullable().optional(),
 })
@@ -81,7 +80,7 @@ export function emptyFilter(): FilterConfig {
 }
 
 export function emptySubscription(): SubscriptionConfig {
-  return { url: '', tag: null, enabled: true, user_agent: null }
+  return { url: '', enabled: true, user_agent: null }
 }
 
 export function emptyConfigData(): ConfigData {

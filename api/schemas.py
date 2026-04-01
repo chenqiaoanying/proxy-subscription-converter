@@ -23,7 +23,6 @@ class FilterConfig(BaseModel):
 
 class SubscriptionConfig(BaseModel):
     url: str
-    tag: str | None = None
     enabled: bool = True
     user_agent: str | None = None
 

@@ -84,7 +84,6 @@ Each config follows this shape (see `example.json`):
     "subscriptions": {
       "sub_name": {
         "url": "https://...",
-        "tag": "optional_group_tag",
         "enabled": true,
         "user_agent": "clashmeta"
       }
@@ -132,10 +131,9 @@ All three share `_run_generate(config: ConfigData)` in `api/routers/generate.py`
 Generate flow (shared):
 1. Fetch all enabled subscription URLs concurrently (`asyncio.gather`)
 2. Load the template (from URL or inline dict)
-3. For each subscription with a `tag`: create a selector outbound group with all its proxies
-4. For each filter: collect proxies from scoped subscriptions, apply include/exclude rules, create an outbound group
-5. Prepend generated outbound groups to the template's `outbounds` array
-6. Return the merged sing-box config as JSON
+3. For each filter: collect proxies from scoped subscriptions, apply include/exclude rules, create an outbound group
+4. Prepend generated outbound groups to the template's `outbounds` array
+5. Return the merged sing-box config as JSON
 
 ### Stateless workflow (no DB)
 

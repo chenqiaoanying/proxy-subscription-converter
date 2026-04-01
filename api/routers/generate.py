@@ -101,14 +101,6 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
 
     generated_outbounds: list[dict[str, Any]] = []
 
-    # Subscription-level outbound groups (subscriptions that have a tag set)
-    for name, s in sub_cfg.subscriptions.items():
-        if s.tag and s.enabled:
-            proxies = proxy_map.get(name, [])
-            generated_outbounds.append(
-                {"tag": s.tag, "type": "selector", "outbounds": proxies}
-            )
-
     # Filter outbound groups
     for f in sub_cfg.filters:
         source_names = f.subscriptions if f.subscriptions else list(proxy_map.keys())
