@@ -15,20 +15,20 @@ cd frontend && npm run dev
 cd frontend && npm run build
 
 # Run backend dev server (port 8000)
-uv run uvicorn api.index:app --reload --port 8000
+cd api && uv run uvicorn api.index:app --reload --port 8000
 
 # Install Python dependencies
-uv sync
+cd api && uv sync
 
 # Add a new Python dependency (then regenerate for Vercel)
-uv add <package>
-uv export --no-hashes --no-dev -o api/requirements.txt
+cd api && uv add <package>
+cd api && uv export --no-hashes --no-dev -o requirements.txt
 
 # Run database migration (only needed if DATABASE_URL is configured)
-DATABASE_URL=postgresql+asyncpg://... uv run alembic -c alembic/alembic.ini upgrade head
+DATABASE_URL=postgresql+asyncpg://... cd api && uv run alembic -c ../alembic/alembic.ini upgrade head
 
 # Create a new migration after model changes
-DATABASE_URL=postgresql+asyncpg://... uv run alembic -c alembic/alembic.ini revision --autogenerate -m "description"
+DATABASE_URL=postgresql+asyncpg://... cd api && uv run alembic -c ../alembic/alembic.ini revision --autogenerate -m "description"
 ```
 
 There are no test scripts configured.
@@ -50,7 +50,9 @@ api/
   database.py       Async SQLAlchemy engine, session factory, Base — optional DB init
   models.py         ORM: Config model (id, name, data JSONB, timestamps)
   schemas.py        Pydantic v2 models for request/response and config doc structure
-  requirements.txt  Python dependencies
+  pyproject.toml    Python dependency declaration (uv)
+  uv.lock           Locked dependency versions
+  requirements.txt  Pinned deps exported for Vercel (generated — do not edit manually)
   routers/
     configs.py      CRUD: GET/POST /api/configs, GET/PUT/DELETE /api/configs/{id} (requires DB)
     generate.py     Three generate endpoints — see Generate endpoints below
