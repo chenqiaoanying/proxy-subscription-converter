@@ -24,11 +24,11 @@ git clone <repo>
 cd proxy-subscribe-converter
 
 # Install dependencies
-uv venv .venv && uv pip install -r api/requirements.txt
+cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 
 # Run both dev servers (two terminals)
-.venv/bin/uvicorn api.index:app --reload --port 8000
+cd backend && uv run uvicorn api.index:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
@@ -126,7 +126,7 @@ DATABASE_URL=postgresql+asyncpg://user:password@host/dbname?sslmode=require
 
 ```bash
 # Alembic reads DATABASE_URL from the environment (not .env)
-DATABASE_URL=postgresql+asyncpg://... alembic -c alembic/alembic.ini upgrade head
+DATABASE_URL=postgresql+asyncpg://... cd backend && uv run alembic -c alembic/alembic.ini upgrade head
 ```
 
 > Alembic automatically swaps `+asyncpg` → `+psycopg` internally for the sync migration run.
