@@ -54,7 +54,6 @@ function formatDate(s: string) {
         <template #default="{ row }">
           <el-button size="small" @click="emit('edit', row.id)">
             <el-icon><Edit /></el-icon>
-            Edit
           </el-button>
           <el-button size="small" @click="copyGenerateUrl(row.id)">
             <el-icon><CopyDocument /></el-icon>
