@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28",
     "pydantic>=2.11",
     "pydantic-settings>=2.8",
+    "aiosqlite>=0.22.1",
 ]
 
 [tool.uv]

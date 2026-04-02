@@ -10,11 +10,19 @@ from api.models import Base  # noqa: F401
 config = context.config
 fileConfig(config.config_file_name)  # type: ignore[arg-type]
 
-# Use DATABASE_URL from environment, stripping the asyncpg driver for sync Alembic
-database_url = os.environ["DATABASE_URL"].replace("+asyncpg", "+psycopg")
-config.set_main_option("sqlalchemy.url", database_url)
-
 target_metadata = Base.metadata
+
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    print("WARNING: DATABASE_URL not set — skipping migrations")
+elif database_url.startswith("sqlite"):
+    # SQLite dev DB: use create_all via init_db, not Alembic
+    print("INFO: SQLite detected — skipping Alembic migrations (use init_db instead)")
+    database_url = None
+else:
+    # PostgreSQL: swap asyncpg driver for sync psycopg used by Alembic
+    database_url = database_url.replace("+asyncpg", "+psycopg")
+    config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_online() -> None:
@@ -29,4 +37,5 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-run_migrations_online()
+if database_url:
+    run_migrations_online()

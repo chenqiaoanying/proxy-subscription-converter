@@ -1,10 +1,22 @@
+from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
+from api.database import engine, init_db
 from api.routers import configs, generate
 
-app = FastAPI(title="proxy-subscribe-converter")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    if engine is not None and str(engine.url).startswith("sqlite"):
+        await init_db()
+    yield
+
+
+app = FastAPI(title="proxy-subscribe-converter", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
