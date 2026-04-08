@@ -5,7 +5,8 @@ A serverless web app that aggregates sing-box proxy subscriptions, lets you defi
 ## Features
 
 - Manage multiple proxy subscription URLs with custom names
-- Define filters with include/exclude rules (pattern, proxy type, regex, case sensitivity)
+- Define static groups with include/exclude rules (pattern, proxy type, regex, case sensitivity)
+- Auto-region groups that dynamically expand into a parent outbound group containing per-region sub-groups at generate-time
 - Generate sing-box configs on demand — proxies are always fetched live (no caching)
 - Monaco editor for inline JSON template editing with sing-box schema validation
 - **Stateless mode**: no database required — host your config on GitHub Gist or S3 and use a stable `?url=` generate link
@@ -38,7 +39,7 @@ Open [http://localhost:5173](http://localhost:5173). No `.env` file needed.
 
 ### Option A — Stateless (no database, recommended for self-hosting)
 
-1. Build your config in the UI editor (Subscriptions, Filters, Template tabs)
+1. Build your config in the UI editor (Subscriptions, Groups, Template tabs)
 2. Go to the **Generate** tab → click **Export Config JSON**
 3. Upload the exported file to [GitHub Gist](https://gist.github.com) or S3, copy the raw URL
 4. Paste the raw URL in the **Stateless Generate URL** section — the generate link is built for you
@@ -70,7 +71,7 @@ Set up the database (see below), save your config via the UI, and point sing-box
         "user_agent": "clashmeta"
       }
     },
-    "filters": [
+    "groups": [
       {
         "tag": "HK Nodes",
         "type": "selector",
@@ -83,6 +84,20 @@ Set up the database (see below), save your config via the UI, and point sing-box
         },
         "exclude": null,
         "subscriptions": ["my_airport"]
+      },
+      {
+        "group_tag": "My Proxies",
+        "type": "auto_region",
+        "group_type": "selector",
+        "sub_group_tag": "{region} Nodes",
+        "sub_group_type": "urltest",
+        "subscriptions": ["my_airport"],
+        "regions": "auto",
+        "others_tag": "Others",
+        "region_map": {},
+        "use_emoji": true,
+        "include": null,
+        "exclude": null
       }
     ]
   },
@@ -91,6 +106,11 @@ Set up the database (see below), save your config via the UI, and point sing-box
 ```
 
 `config_template` can be a URL (fetched at generate time) or an inline JSON object.
+
+**Group types:**
+
+- **Static** (`type: "selector" | "urltest"`): Creates a single outbound group. Collects proxies from subscriptions and applies include/exclude rules to filter them.
+- **Auto-region** (`type: "auto_region"`): Dynamically generates a parent outbound group containing one sub-group per detected region. `group_tag` names the parent; `sub_group_tag` is a template with a `{region}` placeholder (e.g., `"{region} Nodes"` → `"HK Nodes"`, `"JP Nodes"`, …). `group_type` sets the parent's sing-box type; `sub_group_type` sets the sub-groups' type. Use `regions: "auto"` to detect all regions dynamically, or specify `regions: ["HK", "JP", "US"]` to emit groups in that order with an `"Others"` catch-all sub-group.
 
 ## API
 

@@ -70,10 +70,10 @@ frontend/
     stores/configs.ts Pinia store for config CRUD + generate helpers
     pages/
       ConfigListPage.vue    Table of all configs + create/delete
-      ConfigEditorPage.vue  Four-tab editor: Subscriptions, Filters, Template, Generate
+      ConfigEditorPage.vue  Four-tab editor: Subscriptions, Groups, Template, Generate
     components/
       SubscriptionsPanel.vue  Manage subscriber.subscriptions dict
-      FiltersPanel.vue        Manage subscriber.filters array with include/exclude rules
+      GroupsPanel.vue         Manage subscriber.groups array (static or auto_region groups)
       TemplatePanel.vue       URL or inline JSON template (Monaco Editor)
       MonacoEditor.vue        Monaco editor with sing-box JSON schema validation
     schemas/sing-box.schema.json  JSON schema for template editor validation
@@ -93,10 +93,10 @@ Each config follows this shape (see `example.json`):
         "user_agent": "clashmeta"
       }
     },
-    "filters": [
+    "groups": [
       {
-        "tag": "output_tag",
-        "type": "selector | urltest",
+        "tag": "HK Nodes",
+        "type": "selector",
         "include": {
           "pattern": "HK",
           "proxy_type": ["vmess"],
@@ -106,12 +106,53 @@ Each config follows this shape (see `example.json`):
         },
         "exclude": null,
         "subscriptions": ["sub_name"]
+      },
+      {
+        "group_tag": "My Proxies",
+        "type": "auto_region",
+        "group_type": "selector",
+        "sub_group_tag": "{region} Nodes",
+        "sub_group_type": "urltest",
+        "subscriptions": ["sub_name"],
+        "regions": "auto",
+        "others_tag": "Others",
+        "region_map": {},
+        "use_emoji": true,
+        "include": null,
+        "exclude": null
       }
     ]
   },
   "config_template": "https://... or inline JSON object"
 }
 ```
+
+**Group types:**
+
+- **Static group** (`type: "selector" | "urltest"`): Manually-defined outbound group. Collects proxies from scoped subscriptions and applies include/exclude rules.
+  - `tag: str` — name of the outbound group
+  - `type: Literal["selector", "urltest"]` — sing-box outbound type
+  - `include: MatchRule | null` — include filter (pattern, proxy_type, regex, match_case, match_whole_word)
+  - `exclude: MatchRule | null` — exclude filter
+  - `subscriptions: list[str]` — which subscription names to pull proxies from
+
+- **Auto-region group** (`type: "auto_region"`): Dynamically creates a parent outbound group containing one sub-group per detected region.
+  - `group_tag: str` — name of the parent outbound group
+  - `type: Literal["auto_region"]` — marks this as dynamic
+  - `group_type: Literal["selector", "urltest"]` (default `"selector"`) — sing-box outbound type for the parent group
+  - `sub_group_tag: str` — must contain `{region}` placeholder (e.g. `"{region} Nodes"`)
+  - `sub_group_type: Literal["selector", "urltest"]` (default `"urltest"`) — sing-box outbound type for each region sub-group
+  - `subscriptions: list[str]` — which subscription names to pull proxies from
+  - `regions: list[str] | "auto"` — region strategy:
+    - `"auto"` — detect all regions dynamically from proxy keywords, sort by count, no catch-all group
+    - `["HK", "JP", "US"]` — explicit ordered regions; always appends an `{others_tag}` group for unmatched proxies
+  - `others_tag: str` (default `"Others"`) — substituted into `{region}` placeholder for catch-all sub-group (only when `regions` is a list)
+  - `region_map: dict[str, str]` — override keyword mappings (e.g. `{"香港": "HK"}`)
+  - `use_emoji: bool` — prepend emoji flag to region label in sub-group tag (e.g. `🇭🇰 HK Nodes`)
+  - `include: MatchRule | null` — include filter before region expansion
+  - `exclude: MatchRule | null` — exclude filter before region expansion
+
+Built-in region keyword map (22 regions): HK, TW, JP, KR, SG, US, GB, DE, FR, NL, CA, AU, IN, BR, RU, TR, AR, PH, ID, MY, TH, VN.
 
 ### Database schema
 
@@ -136,14 +177,14 @@ All three share `_run_generate(config: ConfigData)` in `backend/api/routers/gene
 Generate flow (shared):
 1. Fetch all enabled subscription URLs concurrently (`asyncio.gather`)
 2. Load the template (from URL or inline dict)
-3. For each filter: collect proxies from scoped subscriptions, apply include/exclude rules, create an outbound group
+3. For each group: if static, collect proxies and apply include/exclude rules; if auto_region, expand into multiple region groups based on detected keywords
 4. Prepend generated outbound groups to the template's `outbounds` array
 5. Return the merged sing-box config as JSON
 
 ### Stateless workflow (no DB)
 
 Users can run this app without a database. The recommended flow:
-1. Build config in the UI editor (Subscriptions, Filters, Template tabs)
+1. Build config in the UI editor (Subscriptions, Groups, Template tabs)
 2. Go to the **Generate** tab → **Export Config JSON** to download `proxy-subscribe-config.json`
 3. Upload that file to GitHub Gist or S3 and copy the raw URL
 4. Paste the URL in the **Stateless Generate URL** section → copy the resulting `?url=` link

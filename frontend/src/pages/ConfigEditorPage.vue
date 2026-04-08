@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useConfigStore } from '@/stores/configs'
 import { type ConfigData, ConfigDataSchema, emptyConfigData } from '@/types'
 import SubscriptionsPanel from '@/components/SubscriptionsPanel.vue'
-import FiltersPanel from '@/components/FiltersPanel.vue'
+import GroupsPanel from '@/components/GroupsPanel.vue'
 import TemplatePanel from '@/components/TemplatePanel.vue'
 import MonacoEditor from '@/components/MonacoEditor.vue'
 
@@ -202,9 +202,9 @@ function copyToClipboard(text: string) {
       <el-tab-pane label="Subscriptions" name="subscriptions">
         <SubscriptionsPanel v-model="configData.subscriber.subscriptions" />
       </el-tab-pane>
-      <el-tab-pane label="Filters" name="filters">
-        <FiltersPanel
-          v-model="configData.subscriber.filters"
+      <el-tab-pane label="Groups" name="groups">
+        <GroupsPanel
+          v-model="configData.subscriber.groups"
           :subscription-names="Object.keys(configData.subscriber.subscriptions)"
         />
       </el-tab-pane>
@@ -220,7 +220,7 @@ function copyToClipboard(text: string) {
               <el-text tag="b">Generate Sing-box Config</el-text>
             </template>
             <el-text type="info">
-              Fetch your subscriptions, apply filters, and download the merged sing-box config.
+              Fetch your subscriptions, apply groups, and download the merged sing-box config.
             </el-text>
             <div style="margin-top: 16px; display: flex; gap: 12px">
               <el-button type="primary" :loading="generating" @click="handlePreview">

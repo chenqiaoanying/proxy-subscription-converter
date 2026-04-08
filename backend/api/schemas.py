@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,12 +13,30 @@ class MatchRule(BaseModel):
     match_whole_word: bool = False
 
 
-class FilterConfig(BaseModel):
+class StaticGroupConfig(BaseModel):
     tag: str
     type: Literal["selector", "urltest"] = "selector"
     include: MatchRule | None = None
     exclude: MatchRule | None = None
     subscriptions: list[str] = []
+
+
+class AutoRegionGroupConfig(BaseModel):
+    group_tag: str
+    type: Literal["auto_region"]
+    group_type: Literal["selector", "urltest"] = "selector"
+    sub_group_tag: str
+    sub_group_type: Literal["selector", "urltest"] = "urltest"
+    subscriptions: list[str] = []
+    regions: list[str] | Literal["auto"] = "auto"
+    others_tag: str = "Others"
+    region_map: dict[str, str] = {}
+    use_emoji: bool = False
+    include: MatchRule | None = None
+    exclude: MatchRule | None = None
+
+
+GroupConfig = Union[AutoRegionGroupConfig, StaticGroupConfig]
 
 
 class SubscriptionConfig(BaseModel):
@@ -29,7 +47,7 @@ class SubscriptionConfig(BaseModel):
 
 class SubscriberConfig(BaseModel):
     subscriptions: dict[str, SubscriptionConfig] = {}
-    filters: list[FilterConfig] = []
+    groups: list[GroupConfig] = []
 
 
 class ConfigData(BaseModel):
