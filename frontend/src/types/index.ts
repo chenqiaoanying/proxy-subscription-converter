@@ -12,6 +12,14 @@ export const MatchRuleSchema = z.object({
   match_whole_word: z.boolean().default(false),
 })
 
+export const UrlTestOptionsSchema = z.object({
+  url: z.string().optional(),
+  interval: z.string().optional(),
+  tolerance: z.number().int().optional(),
+  idle_timeout: z.string().optional(),
+  interrupt_exist_connections: z.boolean().optional(),
+})
+
 export const StaticGroupConfigSchema = z.preprocess(
   (v: unknown) => v && typeof v === 'object' && 'subscriptions' in v && !('imports' in v)
     ? { ...(v as object), imports: (v as Record<string, unknown>).subscriptions }
@@ -22,6 +30,7 @@ export const StaticGroupConfigSchema = z.preprocess(
     include: MatchRuleSchema.nullable().optional(),
     exclude: MatchRuleSchema.nullable().optional(),
     imports: z.array(z.string()).default([]),
+    urltest_options: UrlTestOptionsSchema.optional(),
   })
 )
 
@@ -42,6 +51,8 @@ export const AutoRegionGroupConfigSchema = z.preprocess(
     use_emoji: z.boolean().default(false),
     include: MatchRuleSchema.nullable().optional(),
     exclude: MatchRuleSchema.nullable().optional(),
+    group_urltest_options: UrlTestOptionsSchema.optional(),
+    sub_group_urltest_options: UrlTestOptionsSchema.optional(),
   })
 )
 
@@ -87,6 +98,7 @@ export const ConfigOutSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export type MatchRule = z.infer<typeof MatchRuleSchema>
+export type UrlTestOptions = z.infer<typeof UrlTestOptionsSchema>
 export type StaticGroupConfig = z.infer<typeof StaticGroupConfigSchema>
 export type AutoRegionGroupConfig = z.infer<typeof AutoRegionGroupConfigSchema>
 export type GroupConfig = z.infer<typeof GroupConfigSchema>

@@ -6,6 +6,7 @@ import {
   type MatchRule,
   type ProxyInfo,
   type StaticGroupConfig,
+  type UrlTestOptions,
   emptyMatchRule,
 } from '@/types'
 import { useConfigStore } from '@/stores/configs'
@@ -38,6 +39,10 @@ const formRegionsList = ref<string[]>([])
 const formOthersTag = ref('Others')
 const formUseEmoji = ref(false)
 const formRegionMapEntries = ref<{ keyword: string; region: string }[]>([])
+// Urltest options
+const formUrltestOptions = ref<UrlTestOptions>({})
+const formGroupUrltestOptions = ref<UrlTestOptions>({})
+const formSubGroupUrltestOptions = ref<UrlTestOptions>({})
 
 const isAutoRegion = computed(() => formType.value === 'auto_region')
 const otherGroupTags = computed(() =>
@@ -66,6 +71,9 @@ function resetForm() {
   formUseEmoji.value = false
   formRegionMapEntries.value = []
   showRegionMap.value = false
+  formUrltestOptions.value = {}
+  formGroupUrltestOptions.value = {}
+  formSubGroupUrltestOptions.value = {}
 }
 
 function loadGroup(g: GroupConfig) {
@@ -83,6 +91,8 @@ function loadGroup(g: GroupConfig) {
     formOthersTag.value = g.others_tag
     formUseEmoji.value = g.use_emoji
     formRegionMapEntries.value = Object.entries(g.region_map).map(([keyword, region]) => ({ keyword, region }))
+    formGroupUrltestOptions.value = g.group_urltest_options ? { ...g.group_urltest_options } : {}
+    formSubGroupUrltestOptions.value = g.sub_group_urltest_options ? { ...g.sub_group_urltest_options } : {}
   } else {
     formTag.value = g.tag
     formGroupTag.value = ''
@@ -94,7 +104,18 @@ function loadGroup(g: GroupConfig) {
     formOthersTag.value = 'Others'
     formUseEmoji.value = false
     formRegionMapEntries.value = []
+    formUrltestOptions.value = g.urltest_options ? { ...g.urltest_options } : {}
   }
+}
+
+function toUrltestOptions(opts: UrlTestOptions): UrlTestOptions | undefined {
+  const cleaned: UrlTestOptions = {}
+  if (opts.url?.trim()) cleaned.url = opts.url.trim()
+  if (opts.interval?.trim()) cleaned.interval = opts.interval.trim()
+  if (opts.tolerance !== undefined && opts.tolerance !== null) cleaned.tolerance = opts.tolerance
+  if (opts.idle_timeout?.trim()) cleaned.idle_timeout = opts.idle_timeout.trim()
+  if (opts.interrupt_exist_connections !== undefined) cleaned.interrupt_exist_connections = opts.interrupt_exist_connections
+  return Object.keys(cleaned).length ? cleaned : undefined
 }
 
 function buildGroup(): GroupConfig {
@@ -116,6 +137,8 @@ function buildGroup(): GroupConfig {
       region_map,
       include: formInclude.value,
       exclude: formExclude.value,
+      group_urltest_options: formGroupType.value === 'urltest' ? toUrltestOptions(formGroupUrltestOptions.value) : undefined,
+      sub_group_urltest_options: formSubGroupType.value === 'urltest' ? toUrltestOptions(formSubGroupUrltestOptions.value) : undefined,
     } satisfies AutoRegionGroupConfig
   }
   return {
@@ -124,6 +147,7 @@ function buildGroup(): GroupConfig {
     imports: formImports.value,
     include: formInclude.value,
     exclude: formExclude.value,
+    urltest_options: formType.value === 'urltest' ? toUrltestOptions(formUrltestOptions.value) : undefined,
   } satisfies StaticGroupConfig
 }
 
@@ -334,6 +358,63 @@ function describeRule(rule: MatchRule | null | undefined): string {
           v-model:region-map-entries="formRegionMapEntries"
           v-model:show-region-map="showRegionMap"
         />
+
+        <template v-if="!isAutoRegion && formType === 'urltest'">
+          <el-divider>URL Test Options</el-divider>
+          <el-form-item label="URL">
+            <el-input v-model="formUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          </el-form-item>
+          <el-form-item label="Interval">
+            <el-input v-model="formUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="Tolerance (ms)">
+            <el-input-number v-model="formUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          </el-form-item>
+          <el-form-item label="Idle Timeout">
+            <el-input v-model="formUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="">
+            <el-checkbox v-model="formUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+          </el-form-item>
+        </template>
+
+        <template v-if="isAutoRegion && formGroupType === 'urltest'">
+          <el-divider>Group URL Test Options</el-divider>
+          <el-form-item label="URL">
+            <el-input v-model="formGroupUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          </el-form-item>
+          <el-form-item label="Interval">
+            <el-input v-model="formGroupUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="Tolerance (ms)">
+            <el-input-number v-model="formGroupUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          </el-form-item>
+          <el-form-item label="Idle Timeout">
+            <el-input v-model="formGroupUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="">
+            <el-checkbox v-model="formGroupUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+          </el-form-item>
+        </template>
+
+        <template v-if="isAutoRegion && formSubGroupType === 'urltest'">
+          <el-divider>Sub-Group URL Test Options</el-divider>
+          <el-form-item label="URL">
+            <el-input v-model="formSubGroupUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          </el-form-item>
+          <el-form-item label="Interval">
+            <el-input v-model="formSubGroupUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="Tolerance (ms)">
+            <el-input-number v-model="formSubGroupUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          </el-form-item>
+          <el-form-item label="Idle Timeout">
+            <el-input v-model="formSubGroupUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          </el-form-item>
+          <el-form-item label="">
+            <el-checkbox v-model="formSubGroupUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+          </el-form-item>
+        </template>
 
         <el-divider>Include Rule</el-divider>
         <template v-if="formInclude">

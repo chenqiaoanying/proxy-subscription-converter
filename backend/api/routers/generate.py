@@ -21,6 +21,7 @@ from api.schemas import (
     SubscriptionConfig,
     SubscriptionPreviewRequest,
     SubscriptionPreviewResponse,
+    UrlTestOptions,
 )
 
 router = APIRouter()
@@ -114,15 +115,31 @@ def _region_label(region: str, use_emoji: bool) -> str:
     return region
 
 
+_URLTEST_FIELDS = ("url", "interval", "tolerance", "idle_timeout", "interrupt_exist_connections")
+
+
+def _apply_urltest_options(entry: dict[str, Any], opts: UrlTestOptions | None) -> None:
+    if opts is None:
+        return
+    for field in _URLTEST_FIELDS:
+        val = getattr(opts, field)
+        if val is not None:
+            entry[field] = val
+
+
 def _emit_group(
     tag: str,
     group_type: str,
     proxies: list[dict[str, Any]],
     generated_groups: list[dict[str, Any]],
     all_proxy_outbounds: dict[str, dict[str, Any]],
+    urltest_options: UrlTestOptions | None = None,
 ) -> None:
     proxy_tags = [p["tag"] for p in proxies if "tag" in p]
-    generated_groups.append({"tag": tag, "type": group_type, "outbounds": proxy_tags})
+    entry: dict[str, Any] = {"tag": tag, "type": group_type, "outbounds": proxy_tags}
+    if group_type == "urltest":
+        _apply_urltest_options(entry, urltest_options)
+    generated_groups.append(entry)
     for p in proxies:
         if "tag" in p:
             all_proxy_outbounds[p["tag"]] = p
@@ -283,17 +300,20 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
                 sub_group_entries.append((others_sub_tag, others_proxies))
 
             # Insert parent group before sub-groups
-            generated_groups.append({
+            parent_entry: dict[str, Any] = {
                 "tag": group.group_tag,
                 "type": group.group_type,
                 "outbounds": [tag for tag, _ in sub_group_entries],
-            })
+            }
+            if group.group_type == "urltest":
+                _apply_urltest_options(parent_entry, group.group_urltest_options)
+            generated_groups.append(parent_entry)
 
             for sub_tag, sub_proxies in sub_group_entries:
-                _emit_group(sub_tag, group.sub_group_type, sub_proxies, generated_groups, all_proxy_outbounds)
+                _emit_group(sub_tag, group.sub_group_type, sub_proxies, generated_groups, all_proxy_outbounds, group.sub_group_urltest_options)
 
         else:
-            _emit_group(group.tag, group.type, proxies, generated_groups, all_proxy_outbounds)
+            _emit_group(group.tag, group.type, proxies, generated_groups, all_proxy_outbounds, group.urltest_options)
 
     # Prepend generated groups + individual proxy entries to template outbounds
     existing_outbounds: list[Any] = template.get("outbounds", [])

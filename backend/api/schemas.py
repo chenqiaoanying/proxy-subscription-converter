@@ -14,12 +14,21 @@ class MatchRule(BaseModel):
     match_whole_word: bool = False
 
 
+class UrlTestOptions(BaseModel):
+    url: str | None = None
+    interval: str | None = None
+    tolerance: int | None = None
+    idle_timeout: str | None = None
+    interrupt_exist_connections: bool | None = None
+
+
 class StaticGroupConfig(BaseModel):
     tag: str
     type: Literal["selector", "urltest"] = "selector"
     include: MatchRule | None = None
     exclude: MatchRule | None = None
     imports: list[str] = Field(default=[], validation_alias=AliasChoices("imports", "subscriptions"))
+    urltest_options: UrlTestOptions | None = None
 
 
 class AutoRegionGroupConfig(BaseModel):
@@ -35,6 +44,8 @@ class AutoRegionGroupConfig(BaseModel):
     use_emoji: bool = False
     include: MatchRule | None = None
     exclude: MatchRule | None = None
+    group_urltest_options: UrlTestOptions | None = None
+    sub_group_urltest_options: UrlTestOptions | None = None
 
 
 GroupConfig = Union[AutoRegionGroupConfig, StaticGroupConfig]
