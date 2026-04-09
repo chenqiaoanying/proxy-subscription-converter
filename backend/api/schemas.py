@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.fields import AliasChoices
 
 
 class MatchRule(BaseModel):
@@ -18,7 +19,7 @@ class StaticGroupConfig(BaseModel):
     type: Literal["selector", "urltest"] = "selector"
     include: MatchRule | None = None
     exclude: MatchRule | None = None
-    subscriptions: list[str] = []
+    imports: list[str] = Field(default=[], validation_alias=AliasChoices("imports", "subscriptions"))
 
 
 class AutoRegionGroupConfig(BaseModel):
@@ -27,7 +28,7 @@ class AutoRegionGroupConfig(BaseModel):
     group_type: Literal["selector", "urltest"] = "selector"
     sub_group_tag: str
     sub_group_type: Literal["selector", "urltest"] = "urltest"
-    subscriptions: list[str] = []
+    imports: list[str] = Field(default=[], validation_alias=AliasChoices("imports", "subscriptions"))
     regions: list[str] | Literal["auto"] = "auto"
     others_tag: str = "Others"
     region_map: dict[str, str] = {}

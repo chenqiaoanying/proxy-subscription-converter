@@ -21,7 +21,7 @@ const PROXY_TYPES = ['vmess', 'vless', 'trojan', 'shadowsocks', 'hysteria2', 'tu
 // Form state — covers all fields from both group types
 const formTag = ref('')
 const formType = ref<'selector' | 'urltest' | 'auto_region'>('selector')
-const formSubscriptions = ref<string[]>([])
+const formImports = ref<string[]>([])
 const formInclude = ref<MatchRule | null>(null)
 const formExclude = ref<MatchRule | null>(null)
 // Auto region specific
@@ -36,6 +36,12 @@ const formUseEmoji = ref(false)
 const formRegionMapEntries = ref<{ keyword: string; region: string }[]>([])
 
 const isAutoRegion = computed(() => formType.value === 'auto_region')
+const otherGroupTags = computed(() =>
+  model.value
+    .filter((_, i) => i !== editingIndex.value)
+    .map(g => g.type === 'auto_region' ? g.group_tag : g.tag)
+    .filter(tag => tag.trim() !== '')
+)
 const tagMissingPlaceholder = computed(
   () => isAutoRegion.value && formSubGroupTag.value.trim() !== '' && !formSubGroupTag.value.includes('{region}')
 )
@@ -43,7 +49,7 @@ const tagMissingPlaceholder = computed(
 function resetForm() {
   formTag.value = ''
   formType.value = 'selector'
-  formSubscriptions.value = []
+  formImports.value = []
   formInclude.value = null
   formExclude.value = null
   formGroupTag.value = ''
@@ -60,7 +66,7 @@ function resetForm() {
 
 function loadGroup(g: GroupConfig) {
   formType.value = g.type
-  formSubscriptions.value = [...g.subscriptions]
+  formImports.value = [...g.imports]
   formInclude.value = g.include ? { ...g.include, proxy_type: [...g.include.proxy_type] } : null
   formExclude.value = g.exclude ? { ...g.exclude, proxy_type: [...g.exclude.proxy_type] } : null
   if (g.type === 'auto_region') {
@@ -99,7 +105,7 @@ function buildGroup(): GroupConfig {
       group_type: formGroupType.value,
       sub_group_tag: formSubGroupTag.value.trim(),
       sub_group_type: formSubGroupType.value,
-      subscriptions: formSubscriptions.value,
+      imports: formImports.value,
       regions: formRegionsMode.value === 'auto' ? 'auto' : formRegionsList.value,
       others_tag: formOthersTag.value || 'Others',
       use_emoji: formUseEmoji.value,
@@ -111,7 +117,7 @@ function buildGroup(): GroupConfig {
   return {
     tag: formTag.value.trim(),
     type: formType.value as 'selector' | 'urltest',
-    subscriptions: formSubscriptions.value,
+    imports: formImports.value,
     include: formInclude.value,
     exclude: formExclude.value,
   } satisfies StaticGroupConfig
@@ -213,9 +219,9 @@ function describeRegions(g: GroupConfig): string {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Subscriptions" width="140">
+      <el-table-column label="Import" width="140">
         <template #default="{ row }">
-          {{ row.subscriptions.length ? row.subscriptions.join(', ') : 'All' }}
+          {{ row.imports.length ? row.imports.join(', ') : 'All' }}
         </template>
       </el-table-column>
       <el-table-column label="Regions" width="120">
@@ -281,14 +287,19 @@ function describeRegions(g: GroupConfig): string {
           </el-form-item>
         </template>
 
-        <el-form-item label="Subscriptions">
+        <el-form-item label="Import">
           <el-select
-            v-model="formSubscriptions"
+            v-model="formImports"
             multiple
-            placeholder="All (empty = all)"
+            placeholder="All subscriptions (empty = all)"
             style="width: 100%"
           >
-            <el-option v-for="name in props.subscriptionNames" :key="name" :label="name" :value="name" />
+            <el-option-group v-if="props.subscriptionNames.length" label="Subscriptions">
+              <el-option v-for="name in props.subscriptionNames" :key="name" :label="name" :value="name" />
+            </el-option-group>
+            <el-option-group v-if="otherGroupTags.length" label="Groups">
+              <el-option v-for="name in otherGroupTags" :key="name" :label="name" :value="name" />
+            </el-option-group>
           </el-select>
         </el-form-item>
 

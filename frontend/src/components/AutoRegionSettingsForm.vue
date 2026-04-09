@@ -63,7 +63,7 @@ function removeEntry(idx: number) { regionMapEntries.value.splice(idx, 1) }
     </div>
   </el-form-item>
 
-  <el-form-item v-if="isCustomRegions" label="Others tag">
+  <el-form-item label="Others tag">
     <el-input v-model="othersTag" placeholder="Others" />
     <el-text type="info" size="small">
       Substituted into <code>{region}</code> for the catch-all group.

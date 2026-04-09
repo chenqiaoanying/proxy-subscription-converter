@@ -12,28 +12,38 @@ export const MatchRuleSchema = z.object({
   match_whole_word: z.boolean().default(false),
 })
 
-export const StaticGroupConfigSchema = z.object({
-  tag: z.string(),
-  type: z.enum(['selector', 'urltest']).default('selector'),
-  include: MatchRuleSchema.nullable().optional(),
-  exclude: MatchRuleSchema.nullable().optional(),
-  subscriptions: z.array(z.string()).default([]),
-})
+export const StaticGroupConfigSchema = z.preprocess(
+  (v: unknown) => v && typeof v === 'object' && 'subscriptions' in v && !('imports' in v)
+    ? { ...(v as object), imports: (v as Record<string, unknown>).subscriptions }
+    : v,
+  z.object({
+    tag: z.string(),
+    type: z.enum(['selector', 'urltest']).default('selector'),
+    include: MatchRuleSchema.nullable().optional(),
+    exclude: MatchRuleSchema.nullable().optional(),
+    imports: z.array(z.string()).default([]),
+  })
+)
 
-export const AutoRegionGroupConfigSchema = z.object({
-  group_tag: z.string(),
-  type: z.literal('auto_region'),
-  group_type: z.enum(['selector', 'urltest']).default('selector'),
-  sub_group_tag: z.string(),
-  sub_group_type: z.enum(['selector', 'urltest']).default('urltest'),
-  subscriptions: z.array(z.string()).default([]),
-  regions: z.union([z.array(z.string()), z.literal('auto')]).default('auto'),
-  others_tag: z.string().default('Others'),
-  region_map: z.record(z.string(), z.string()).default({}),
-  use_emoji: z.boolean().default(false),
-  include: MatchRuleSchema.nullable().optional(),
-  exclude: MatchRuleSchema.nullable().optional(),
-})
+export const AutoRegionGroupConfigSchema = z.preprocess(
+  (v: unknown) => v && typeof v === 'object' && 'subscriptions' in v && !('imports' in v)
+    ? { ...(v as object), imports: (v as Record<string, unknown>).subscriptions }
+    : v,
+  z.object({
+    group_tag: z.string(),
+    type: z.literal('auto_region'),
+    group_type: z.enum(['selector', 'urltest']).default('selector'),
+    sub_group_tag: z.string(),
+    sub_group_type: z.enum(['selector', 'urltest']).default('urltest'),
+    imports: z.array(z.string()).default([]),
+    regions: z.union([z.array(z.string()), z.literal('auto')]).default('auto'),
+    others_tag: z.string().default('Others'),
+    region_map: z.record(z.string(), z.string()).default({}),
+    use_emoji: z.boolean().default(false),
+    include: MatchRuleSchema.nullable().optional(),
+    exclude: MatchRuleSchema.nullable().optional(),
+  })
+)
 
 export const GroupConfigSchema = z.union([AutoRegionGroupConfigSchema, StaticGroupConfigSchema])
 
@@ -95,7 +105,7 @@ export function emptyMatchRule(): MatchRule {
 }
 
 export function emptyGroup(): StaticGroupConfig {
-  return { tag: '', type: 'selector', include: null, exclude: null, subscriptions: [] }
+  return { tag: '', type: 'selector', include: null, exclude: null, imports: [] }
 }
 
 export function emptySubscription(): SubscriptionConfig {

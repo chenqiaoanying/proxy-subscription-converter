@@ -83,7 +83,7 @@ Set up the database (see below), save your config via the UI, and point sing-box
           "match_whole_word": false
         },
         "exclude": null,
-        "subscriptions": ["my_airport"]
+        "imports": ["my_airport"]
       },
       {
         "group_tag": "My Proxies",
@@ -91,7 +91,7 @@ Set up the database (see below), save your config via the UI, and point sing-box
         "group_type": "selector",
         "sub_group_tag": "{region} Nodes",
         "sub_group_type": "urltest",
-        "subscriptions": ["my_airport"],
+        "imports": ["my_airport"],
         "regions": "auto",
         "others_tag": "Others",
         "region_map": {},
@@ -109,8 +109,10 @@ Set up the database (see below), save your config via the UI, and point sing-box
 
 **Group types:**
 
-- **Static** (`type: "selector" | "urltest"`): Creates a single outbound group. Collects proxies from subscriptions and applies include/exclude rules to filter them.
-- **Auto-region** (`type: "auto_region"`): Dynamically generates a parent outbound group containing one sub-group per detected region. `group_tag` names the parent; `sub_group_tag` is a template with a `{region}` placeholder (e.g., `"{region} Nodes"` → `"HK Nodes"`, `"JP Nodes"`, …). `group_type` sets the parent's sing-box type; `sub_group_type` sets the sub-groups' type. Use `regions: "auto"` to detect all regions dynamically, or specify `regions: ["HK", "JP", "US"]` to emit groups in that order with an `"Others"` catch-all sub-group.
+- **Static** (`type: "selector" | "urltest"`): Creates a single outbound group. Collects proxies from the `imports` list and applies include/exclude rules to filter them.
+- **Auto-region** (`type: "auto_region"`): Dynamically generates a parent outbound group containing one sub-group per detected region. `group_tag` names the parent; `sub_group_tag` is a template with a `{region}` placeholder (e.g., `"{region} Nodes"` → `"HK Nodes"`, `"JP Nodes"`, …). `group_type` sets the parent's sing-box type; `sub_group_type` sets the sub-groups' type. Use `regions: "auto"` to detect all regions dynamically (unmatched proxies go into an `"Others"` catch-all), or specify `regions: ["HK", "JP", "US"]` to emit groups in that explicit order.
+
+**`imports` field**: Each item in `imports` can be either a subscription name (draws raw proxies from that subscription) or another group's tag (draws that group's filtered proxy output, enabling composition). Leave empty to use all subscriptions. Circular imports are detected and fall back to definition order.
 
 ## API
 

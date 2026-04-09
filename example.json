@@ -25,10 +25,10 @@
                     "match_case": true|false # optional, default is false, if set to true, the pattern will be matched case sensitive
                     "match_whole_word": true|false # optional, default is false, if set to true, the pattern will be matched as a whole word
                 },
-                "subscriptions": [
+                "imports": [
                     "subscription1",
                     "subscription2"
-                ] # optional, if set, only the nodes from these subscriptions will be included in the match result
+                ] # optional, if set, only proxies from these subscriptions/groups are used
             }
         ]
     },

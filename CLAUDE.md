@@ -105,7 +105,7 @@ Each config follows this shape (see `example.json`):
           "match_whole_word": false
         },
         "exclude": null,
-        "subscriptions": ["sub_name"]
+        "imports": ["sub_name"]
       },
       {
         "group_tag": "My Proxies",
@@ -113,7 +113,7 @@ Each config follows this shape (see `example.json`):
         "group_type": "selector",
         "sub_group_tag": "{region} Nodes",
         "sub_group_type": "urltest",
-        "subscriptions": ["sub_name"],
+        "imports": ["sub_name"],
         "regions": "auto",
         "others_tag": "Others",
         "region_map": {},
@@ -134,7 +134,7 @@ Each config follows this shape (see `example.json`):
   - `type: Literal["selector", "urltest"]` — sing-box outbound type
   - `include: MatchRule | null` — include filter (pattern, proxy_type, regex, match_case, match_whole_word)
   - `exclude: MatchRule | null` — exclude filter
-  - `subscriptions: list[str]` — which subscription names to pull proxies from
+  - `imports: list[str]` — subscription names or group tags to pull proxies from (empty = all subscriptions)
 
 - **Auto-region group** (`type: "auto_region"`): Dynamically creates a parent outbound group containing one sub-group per detected region.
   - `group_tag: str` — name of the parent outbound group
@@ -142,11 +142,11 @@ Each config follows this shape (see `example.json`):
   - `group_type: Literal["selector", "urltest"]` (default `"selector"`) — sing-box outbound type for the parent group
   - `sub_group_tag: str` — must contain `{region}` placeholder (e.g. `"{region} Nodes"`)
   - `sub_group_type: Literal["selector", "urltest"]` (default `"urltest"`) — sing-box outbound type for each region sub-group
-  - `subscriptions: list[str]` — which subscription names to pull proxies from
+  - `imports: list[str]` — subscription names or group tags to pull proxies from (empty = all subscriptions)
   - `regions: list[str] | "auto"` — region strategy:
-    - `"auto"` — detect all regions dynamically from proxy keywords, sort by count, no catch-all group
-    - `["HK", "JP", "US"]` — explicit ordered regions; always appends an `{others_tag}` group for unmatched proxies
-  - `others_tag: str` (default `"Others"`) — substituted into `{region}` placeholder for catch-all sub-group (only when `regions` is a list)
+    - `"auto"` — detect all regions dynamically from proxy keywords, sort by count, appends an `{others_tag}` group for unmatched proxies
+    - `["HK", "JP", "US"]` — explicit ordered regions; appends an `{others_tag}` group for unmatched proxies
+  - `others_tag: str` (default `"Others"`) — substituted into `{region}` placeholder for the catch-all sub-group
   - `region_map: dict[str, str]` — override keyword mappings (e.g. `{"香港": "HK"}`)
   - `use_emoji: bool` — prepend emoji flag to region label in sub-group tag (e.g. `🇭🇰 HK Nodes`)
   - `include: MatchRule | null` — include filter before region expansion
@@ -177,7 +177,7 @@ All three share `_run_generate(config: ConfigData)` in `backend/api/routers/gene
 Generate flow (shared):
 1. Fetch all enabled subscription URLs concurrently (`asyncio.gather`)
 2. Load the template (from URL or inline dict)
-3. For each group: if static, collect proxies and apply include/exclude rules; if auto_region, expand into multiple region groups based on detected keywords
+3. For each group (in dependency order): resolve `imports` as subscription names or other group tags, apply include/exclude rules; if auto_region, expand into region sub-groups
 4. Prepend generated outbound groups to the template's `outbounds` array
 5. Return the merged sing-box config as JSON
 

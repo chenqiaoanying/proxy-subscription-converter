@@ -15,6 +15,7 @@ from api.models import Config
 from api.schemas import (
     AutoRegionGroupConfig,
     ConfigData,
+    GroupConfig,
     MatchRule,
     SubscriptionConfig,
 )
@@ -140,6 +141,46 @@ async def _fetch_subscription(
     return name, proxies
 
 
+def _topological_sort(groups: list[GroupConfig]) -> list[int]:
+    """Return group indices in dependency order (dependencies before dependents).
+    Falls back to original order if a cycle is detected."""
+    tag_to_idx: dict[str, int] = {}
+    for i, group in enumerate(groups):
+        tag = group.group_tag if isinstance(group, AutoRegionGroupConfig) else group.tag
+        tag_to_idx[tag] = i
+
+    deps: list[list[int]] = [[] for _ in range(len(groups))]
+    for i, group in enumerate(groups):
+        for imp in group.imports:
+            if imp in tag_to_idx:
+                deps[i].append(tag_to_idx[imp])
+
+    visited = [False] * len(groups)
+    in_stack = [False] * len(groups)
+    order: list[int] = []
+    has_cycle = False
+
+    def dfs(idx: int) -> None:
+        nonlocal has_cycle
+        if has_cycle or visited[idx]:
+            return
+        if in_stack[idx]:
+            has_cycle = True
+            return
+        in_stack[idx] = True
+        for dep in deps[idx]:
+            dfs(dep)
+        in_stack[idx] = False
+        visited[idx] = True
+        order.append(idx)
+
+    for i in range(len(groups)):
+        if not visited[i]:
+            dfs(i)
+
+    return list(range(len(groups))) if has_cycle else order
+
+
 async def _run_generate(config: ConfigData) -> dict[str, Any]:
     sub_cfg = config.subscriber
 
@@ -174,11 +215,25 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
 
     generated_groups: list[dict[str, Any]] = []
     all_proxy_outbounds: dict[str, dict[str, Any]] = {}
+    group_proxy_outputs: dict[str, list[dict[str, Any]]] = {}
 
-    for group in sub_cfg.groups:
-        source_names = group.subscriptions if group.subscriptions else list(proxy_map.keys())
-        proxies = [p for n in source_names for p in proxy_map.get(n, [])]
+    proc_order = _topological_sort(sub_cfg.groups)
+    for idx in proc_order:
+        group = sub_cfg.groups[idx]
+        group_tag = group.group_tag if isinstance(group, AutoRegionGroupConfig) else group.tag
+
+        if group.imports:
+            proxies: list[dict[str, Any]] = []
+            for name in group.imports:
+                if name in proxy_map:
+                    proxies.extend(proxy_map[name])
+                elif name in group_proxy_outputs:
+                    proxies.extend(group_proxy_outputs[name])
+        else:
+            proxies = [p for ps in proxy_map.values() for p in ps]
+
         proxies = _apply_filter_rules(proxies, group.include, group.exclude)
+        group_proxy_outputs[group_tag] = proxies
 
         if isinstance(group, AutoRegionGroupConfig):
             buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -192,7 +247,7 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
 
             if group.regions == "auto":
                 ordered_regions = sorted(buckets, key=lambda r: -len(buckets[r]))
-                others_proxies: list[dict[str, Any]] = []
+                others_proxies: list[dict[str, Any]] = unmatched
             else:
                 specified_set = set(group.regions)
                 ordered_regions = [r for r in group.regions if r in buckets]
@@ -206,7 +261,7 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
                 label = _region_label(region, group.use_emoji)
                 sub_tag = group.sub_group_tag.replace("{region}", label)
                 sub_group_entries.append((sub_tag, buckets[region]))
-            if group.regions != "auto" and others_proxies:
+            if others_proxies:
                 others_sub_tag = group.sub_group_tag.replace("{region}", group.others_tag)
                 sub_group_entries.append((others_sub_tag, others_proxies))
 

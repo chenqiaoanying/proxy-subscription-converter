@@ -59,17 +59,13 @@ const entries = () => Object.entries(model.value)
     </div>
 
     <el-table :data="entries()" border>
-      <el-table-column label="Name (Key)" width="160">
-        <template #default="{ row: [key] }">
-          <el-text>{{ key }}</el-text>
-        </template>
+      <el-table-column label="Name (Key)" width="160" show-overflow-tooltip>
+        <template #default="{ row: [key] }">{{ key }}</template>
       </el-table-column>
-      <el-table-column label="URL" min-width="200">
-        <template #default="{ row: [, s] }">
-          <el-text truncated>{{ s.url }}</el-text>
-        </template>
+      <el-table-column label="URL" min-width="200" show-overflow-tooltip>
+        <template #default="{ row: [, s] }">{{ s.url }}</template>
       </el-table-column>
-      <el-table-column label="User-Agent" width="130">
+      <el-table-column label="User-Agent" width="130" show-overflow-tooltip>
         <template #default="{ row: [, s] }">{{ s.user_agent ?? '—' }}</template>
       </el-table-column>
       <el-table-column label="Enabled" width="90">
@@ -115,3 +111,11 @@ const entries = () => Object.entries(model.value)
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+:deep(.el-table td .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>
