@@ -17,7 +17,10 @@ from api.schemas import (
     ConfigData,
     GroupConfig,
     MatchRule,
+    ProxyPreview,
     SubscriptionConfig,
+    SubscriptionPreviewRequest,
+    SubscriptionPreviewResponse,
 )
 
 router = APIRouter()
@@ -139,6 +142,20 @@ async def _fetch_subscription(
     data = resp.json()
     proxies = [o for o in data.get("outbounds", []) if "server" in o]
     return name, proxies
+
+
+@router.post("/subscriptions/preview", response_model=SubscriptionPreviewResponse)
+async def preview_subscription(req: SubscriptionPreviewRequest) -> SubscriptionPreviewResponse:
+    """Fetch proxies from a single subscription URL (no DB, no template)."""
+    try:
+        _, proxies = await _fetch_subscription(
+            "_", SubscriptionConfig(url=req.url, enabled=True, user_agent=req.user_agent)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch subscription: {e}")
+    return SubscriptionPreviewResponse(
+        proxies=[ProxyPreview(tag=p.get("tag", ""), type=p.get("type", "")) for p in proxies]
+    )
 
 
 def _topological_sort(groups: list[GroupConfig]) -> list[int]:

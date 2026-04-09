@@ -97,6 +97,15 @@ export type ConfigListItem = z.infer<typeof ConfigListItemSchema>
 export type ConfigOut = z.infer<typeof ConfigOutSchema>
 
 // ---------------------------------------------------------------------------
+// Proxy preview
+// ---------------------------------------------------------------------------
+
+export interface ProxyInfo {
+  tag: string
+  type: string
+}
+
+// ---------------------------------------------------------------------------
 // Helper defaults
 // ---------------------------------------------------------------------------
 

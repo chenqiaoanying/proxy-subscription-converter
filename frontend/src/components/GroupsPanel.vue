@@ -4,13 +4,17 @@ import {
   type AutoRegionGroupConfig,
   type GroupConfig,
   type MatchRule,
+  type ProxyInfo,
   type StaticGroupConfig,
   emptyMatchRule,
 } from '@/types'
+import { useConfigStore } from '@/stores/configs'
+import { computeGroupProxies, computeRegionBreakdown } from '@/composables/useProxyPreview'
 import AutoRegionSettingsForm from './AutoRegionSettingsForm.vue'
 
 const model = defineModel<GroupConfig[]>({ required: true })
 const props = defineProps<{ subscriptionNames: string[] }>()
+const store = useConfigStore()
 
 const showDialog = ref(false)
 const editingIndex = ref<number | null>(null)
@@ -175,18 +179,43 @@ function ensureExclude() { formExclude.value = emptyMatchRule() }
 function clearInclude() { formInclude.value = null }
 function clearExclude() { formExclude.value = null }
 
+interface GroupRow {
+  _id: string; _index: number; _isChild: boolean
+  tag: string; type: string
+  imports: string[]; include: MatchRule | null; exclude: MatchRule | null
+  proxyCount: number | undefined; hasChildren?: boolean; children?: GroupRow[]
+}
+const tableData = computed((): GroupRow[] => {
+  const gr: Record<string, ProxyInfo[]> = {}
+  return model.value.map((group, i) => {
+    const tag = group.type === 'auto_region' ? group.group_tag : group.tag
+    const proxies = computeGroupProxies(group, store.subscriptionPreviews, gr)
+    if (proxies !== null) gr[tag] = proxies
+    const breakdown = group.type === 'auto_region' && proxies !== null
+      ? computeRegionBreakdown(group, proxies) : undefined
+    const row: GroupRow = {
+      _id: `g-${i}`, _index: i, _isChild: false, tag,
+      type: group.type === 'auto_region' ? group.group_type : group.type,
+      imports: group.imports,
+      include: group.include ?? null, exclude: group.exclude ?? null,
+      proxyCount: proxies?.length,
+      hasChildren: group.type === 'auto_region',
+    }
+    if (breakdown?.length && group.type === 'auto_region')
+      row.children = breakdown.map((item, ri) => ({
+        _id: `g-${i}-r-${ri}`, _index: -1, _isChild: true,
+        tag: item.label, type: group.sub_group_type,
+        imports: [], include: null, exclude: null, proxyCount: item.count,
+      }))
+    return row
+  })
+})
 function describeRule(rule: MatchRule | null | undefined): string {
   if (!rule) return '—'
   const parts: string[] = []
   if (rule.pattern) parts.push(`"${rule.pattern}"${rule.regex ? ' (regex)' : ''}`)
   if (rule.proxy_type.length) parts.push(`types: ${rule.proxy_type.join(', ')}`)
   return parts.join(' | ') || '(any)'
-}
-
-function describeRegions(g: GroupConfig): string {
-  if (g.type !== 'auto_region') return '—'
-  if (g.regions === 'auto') return 'auto'
-  return g.regions.length ? g.regions.join(', ') : '(empty)'
 }
 </script>
 
@@ -199,18 +228,9 @@ function describeRegions(g: GroupConfig): string {
       </el-button>
     </div>
 
-    <el-table :data="model" border>
-      <el-table-column label="#" width="50">
-        <template #default="{ $index }">{{ $index + 1 }}</template>
-      </el-table-column>
-      <el-table-column label="Tag" width="180">
-        <template #default="{ row }">
-          <template v-if="row.type === 'auto_region'">
-            <div>{{ row.group_tag }}</div>
-            <el-text type="info" size="small">{{ row.sub_group_tag }}</el-text>
-          </template>
-          <template v-else>{{ row.tag }}</template>
-        </template>
+    <el-table :data="tableData" border row-key="_id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }">
+      <el-table-column label="Tag" min-width="180" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.tag }}</template>
       </el-table-column>
       <el-table-column label="Type" width="120">
         <template #default="{ row }">
@@ -221,33 +241,34 @@ function describeRegions(g: GroupConfig): string {
       </el-table-column>
       <el-table-column label="Import" width="140">
         <template #default="{ row }">
-          {{ row.imports.length ? row.imports.join(', ') : 'All' }}
+          <span v-if="!row._isChild">{{ row.imports.length ? row.imports.join(', ') : 'All' }}</span>
+          <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Regions" width="120">
-        <template #default="{ row }">{{ describeRegions(row) }}</template>
+      <el-table-column label="Proxies" width="80">
+        <template #default="{ row }">{{ row.proxyCount ?? '—' }}</template>
       </el-table-column>
       <el-table-column label="Include" min-width="160">
-        <template #default="{ row }">{{ describeRule(row.include) }}</template>
+        <template #default="{ row }">{{ row._isChild ? '—' : describeRule(row.include) }}</template>
       </el-table-column>
       <el-table-column label="Exclude" min-width="160">
-        <template #default="{ row }">{{ describeRule(row.exclude) }}</template>
+        <template #default="{ row }">{{ row._isChild ? '—' : describeRule(row.exclude) }}</template>
       </el-table-column>
       <el-table-column label="Actions" width="180" fixed="right">
-        <template #default="{ $index }">
-          <div style="white-space: nowrap">
+        <template #default="{ row }">
+          <div v-if="!row._isChild" style="white-space: nowrap">
             <el-button-group>
-              <el-button size="small" :disabled="$index === 0" @click="moveUp($index)">
+              <el-button size="small" :disabled="row._index === 0" @click="moveUp(row._index)">
                 <el-icon><ArrowUp /></el-icon>
               </el-button>
-              <el-button size="small" :disabled="$index === model.length - 1" @click="moveDown($index)">
+              <el-button size="small" :disabled="row._index === model.length - 1" @click="moveDown(row._index)">
                 <el-icon><ArrowDown /></el-icon>
               </el-button>
             </el-button-group>
-            <el-button size="small" style="margin-left: 4px" @click="openEdit($index)">
+            <el-button size="small" style="margin-left: 4px" @click="openEdit(row._index)">
               <el-icon><Edit /></el-icon>
             </el-button>
-            <el-button size="small" type="danger" @click="handleDelete($index)">
+            <el-button size="small" type="danger" @click="handleDelete(row._index)">
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>
@@ -269,12 +290,10 @@ function describeRegions(g: GroupConfig): string {
           </el-radio-group>
         </el-form-item>
 
-        <!-- Static group tag -->
         <el-form-item v-if="!isAutoRegion" label="Tag" required>
           <el-input v-model="formTag" placeholder="group_tag" />
         </el-form-item>
 
-        <!-- Auto region: parent tag + sub-group tag -->
         <template v-if="isAutoRegion">
           <el-form-item label="Parent tag" required>
             <el-input v-model="formGroupTag" placeholder="My Proxies" />
@@ -303,7 +322,6 @@ function describeRegions(g: GroupConfig): string {
           </el-select>
         </el-form-item>
 
-        <!-- Auto region specific fields -->
         <AutoRegionSettingsForm
           v-if="isAutoRegion"
           :subscription-names="props.subscriptionNames"
@@ -317,7 +335,6 @@ function describeRegions(g: GroupConfig): string {
           v-model:show-region-map="showRegionMap"
         />
 
-        <!-- Include rule -->
         <el-divider>Include Rule</el-divider>
         <template v-if="formInclude">
           <el-form-item label="Pattern">
@@ -339,7 +356,6 @@ function describeRegions(g: GroupConfig): string {
           <el-button size="small" @click="ensureInclude">+ Add Include Rule</el-button>
         </el-form-item>
 
-        <!-- Exclude rule -->
         <el-divider>Exclude Rule</el-divider>
         <template v-if="formExclude">
           <el-form-item label="Pattern">

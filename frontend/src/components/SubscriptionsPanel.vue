@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { type SubscriptionConfig, emptySubscription } from '@/types'
+import { useConfigStore } from '@/stores/configs'
 
 const model = defineModel<Record<string, SubscriptionConfig>>({ required: true })
+const store = useConfigStore()
 
 const showDialog = ref(false)
 const editingKey = ref<string | null>(null)
@@ -47,6 +50,14 @@ function toggleEnabled(key: string) {
 }
 
 const entries = () => Object.entries(model.value)
+
+async function handleLoad(key: string, sub: SubscriptionConfig) {
+  try {
+    await store.previewSubscription(key, sub.url, sub.user_agent)
+  } catch (e) {
+    ElMessage.error(`Failed to load "${key}": ${String(e)}`)
+  }
+}
 </script>
 
 <template>
@@ -73,8 +84,24 @@ const entries = () => Object.entries(model.value)
           <el-switch :model-value="s.enabled" @change="toggleEnabled(key)" />
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="120" fixed="right">
+      <el-table-column label="Proxies" width="80">
         <template #default="{ row: [key] }">
+          <span v-if="store.subscriptionPreviews[key] !== undefined">
+            {{ store.subscriptionPreviews[key].length }}
+          </span>
+          <span v-else style="color: #999">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="180" fixed="right">
+        <template #default="{ row: [key, s] }">
+          <el-button
+            size="small"
+            :loading="store.previewLoading[key]"
+            :title="s.user_agent ? 'Load via backend' : 'Load from browser'"
+            @click="handleLoad(key, s)"
+          >
+            <el-icon v-if="!store.previewLoading[key]"><Refresh /></el-icon>
+          </el-button>
           <el-button size="small" @click="openEdit(key)">
             <el-icon><Edit /></el-icon>
           </el-button>

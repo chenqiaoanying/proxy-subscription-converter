@@ -83,3 +83,17 @@ class ConfigOut(BaseModel):
     data: dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+
+class SubscriptionPreviewRequest(BaseModel):
+    url: str
+    user_agent: str | None = None
+
+
+class ProxyPreview(BaseModel):
+    tag: str
+    type: str
+
+
+class SubscriptionPreviewResponse(BaseModel):
+    proxies: list[ProxyPreview]

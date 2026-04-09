@@ -5,6 +5,7 @@ import {
   type ConfigData,
   type ConfigListItem,
   type ConfigOut,
+  type ProxyInfo,
   ConfigListItemSchema,
   ConfigOutSchema,
   emptyConfigData,
@@ -16,6 +17,8 @@ export const useConfigStore = defineStore('configs', {
     current: null as ConfigOut | null,
     loading: false,
     error: null as string | null,
+    subscriptionPreviews: {} as Record<string, ProxyInfo[]>,
+    previewLoading: {} as Record<string, boolean>,
   }),
 
   actions: {
@@ -73,6 +76,27 @@ export const useConfigStore = defineStore('configs', {
     async generate(data: ConfigData): Promise<object> {
       const res = await axios.post('/api/generate', data)
       return res.data
+    },
+
+    async previewSubscription(name: string, url: string, userAgent?: string | null) {
+      this.previewLoading = { ...this.previewLoading, [name]: true }
+      try {
+        let proxies: ProxyInfo[]
+        if (userAgent) {
+          const res = await axios.post('/api/subscriptions/preview', { url, user_agent: userAgent })
+          proxies = res.data.proxies
+        } else {
+          const res = await fetch(url)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data: { outbounds?: Record<string, unknown>[] } = await res.json()
+          proxies = (data.outbounds ?? [])
+            .filter((o) => 'server' in o)
+            .map((o) => ({ tag: String(o.tag ?? ''), type: String(o.type ?? '') }))
+        }
+        this.subscriptionPreviews = { ...this.subscriptionPreviews, [name]: proxies }
+      } finally {
+        this.previewLoading = { ...this.previewLoading, [name]: false }
+      }
     },
   },
 })
