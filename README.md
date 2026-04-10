@@ -22,7 +22,7 @@ A serverless web app that aggregates sing-box proxy subscriptions, lets you defi
 
 ```bash
 git clone <repo>
-cd proxy-subscribe-converter
+cd proxy-subscription-converter
 
 # Install dependencies
 cd backend && uv sync && cd ..

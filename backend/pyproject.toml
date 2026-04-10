@@ -1,5 +1,5 @@
 [project]
-name = "proxy-subscribe-converter"
+name = "proxy-subscription-converter"
 version = "0.1.0"
 description = "Proxy subscription to sing-box config converter"
 requires-python = ">=3.12"

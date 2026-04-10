@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
-app = FastAPI(title="proxy-subscribe-converter", lifespan=lifespan)
+app = FastAPI(title="proxy-subscription-converter", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
