@@ -30,8 +30,6 @@ idna==3.11
     # via
     #   anyio
     #   httpx
-mangum==0.21.0
-    # via proxy-subscribe-converter
 psycopg==3.3.3
     # via proxy-subscribe-converter
 psycopg-binary==3.3.3 ; implementation_name != 'pypy'
@@ -55,7 +53,6 @@ typing-extensions==4.15.0
     # via
     #   anyio
     #   fastapi
-    #   mangum
     #   psycopg
     #   pydantic
     #   pydantic-core

@@ -15,7 +15,7 @@ A serverless web app that aggregates sing-box proxy subscriptions, lets you defi
 ## Stack
 
 - **Frontend**: Vue 3 + TypeScript + Vite + Element Plus + Pinia
-- **Backend**: Python FastAPI (serverless via Mangum on Vercel)
+- **Backend**: Python FastAPI (deployed as a Vercel Service)
 - **Database**: Neon PostgreSQL — optional, only needed for server-side config storage
 
 ## Quick Start (no database)
@@ -29,7 +29,7 @@ cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 
 # Run both dev servers (two terminals)
-cd backend && uv run uvicorn api.index:app --reload --port 8000
+cd backend && uv run uvicorn src.app.index:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
@@ -159,4 +159,4 @@ DATABASE_URL=postgresql+asyncpg://... cd backend && uv run alembic -c alembic/al
 2. To enable server-side storage: add `DATABASE_URL` in Vercel project settings (or use the Neon integration to auto-populate it)
 3. Without `DATABASE_URL`, only the stateless endpoints are available — the app still works fully for Option A
 
-> **Note**: Vercel Hobby plan limits serverless function execution to 10 seconds. For slow subscription URLs, upgrade to Pro (`maxDuration: 60` in `vercel.json` will then apply).
+> **Note**: Vercel Hobby plan limits function execution to 10 seconds. For slow subscription URLs, upgrade to Pro (`maxDuration: 60` is already set in `vercel.json`).

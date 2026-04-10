@@ -3,10 +3,10 @@ from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
 
-from api.database import engine, init_db
-from api.routers import configs, generate
+from src.app.database import engine, init_db
+from src.app.routers import generate
+from src.app.routers import configs
 
 
 @asynccontextmanager
@@ -25,8 +25,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(configs.router, prefix="/api")
-app.include_router(generate.router, prefix="/api")
-
-# Mangum wraps the ASGI app for Vercel's Lambda-compatible Python runtime
-handler = Mangum(app, lifespan="off")
+app.include_router(configs.router)
+app.include_router(generate.router)

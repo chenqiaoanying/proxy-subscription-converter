@@ -15,14 +15,14 @@ cd frontend && npm run dev
 cd frontend && npm run build
 
 # Run backend dev server (port 8000)
-cd backend && uv run uvicorn api.index:app --reload --port 8000
+cd backend && uv run uvicorn src.app.index:app --reload --port 8000
 
 # Install Python dependencies
 cd backend && uv sync
 
 # Add a new Python dependency (then regenerate for Vercel)
 cd backend && uv add <package>
-cd backend && uv export --no-hashes --no-dev -o api/requirements.txt
+cd backend && uv export --no-hashes --no-dev -o requirements.txt
 
 # Run database migration (only needed if DATABASE_URL is configured)
 DATABASE_URL=postgresql+asyncpg://... cd backend && uv run alembic -c alembic/alembic.ini upgrade head
@@ -38,9 +38,9 @@ There are no test scripts configured.
 A serverless Vercel app that converts proxy subscriptions into sing-box configs.
 
 **Frontend**: Vue 3 SPA (Vite + TypeScript) — built to `dist/`, served by Vercel as static files.
-**Backend**: Python FastAPI in `backend/api/index.py` — deployed as a single Vercel serverless function via Mangum (ASGI → Lambda adapter).
+**Backend**: Python FastAPI in `backend/src/app/index.py` — deployed as a Vercel Service via `experimentalServices` in `vercel.json`.
 **Database**: Optional. Neon PostgreSQL (serverless Postgres) via SQLAlchemy async + asyncpg. Required only for saving configs server-side. The app starts and the generate endpoints work without it.
-**Routing**: `vercel.json` rewrites all `/api/*` to `backend/api/index.py`; Vite dev proxy does the same locally.
+**Routing**: `vercel.json` `experimentalServices` routes `/api/*` to the Python service at `backend/src/app/index.py`; Vite dev proxy does the same locally.
 
 ### Project structure
 
@@ -48,12 +48,12 @@ A serverless Vercel app that converts proxy subscriptions into sing-box configs.
 backend/
   pyproject.toml    Python dependency declaration (uv)
   uv.lock           Locked dependency versions
-  api/
-    index.py          FastAPI app + Mangum handler (entry point)
+  requirements.txt  Pinned deps exported for Vercel (generated — do not edit manually)
+  src/app/
+    index.py          FastAPI app entry point
     database.py       Async SQLAlchemy engine, session factory, Base — optional DB init
     models.py         ORM: Config model (id, name, data JSONB, timestamps)
     schemas.py        Pydantic v2 models for request/response and config doc structure
-    requirements.txt  Pinned deps exported for Vercel (generated — do not edit manually)
     routers/
       configs.py      CRUD: GET/POST /api/configs, GET/PUT/DELETE /api/configs/{id} (requires DB)
       generate.py     Three generate endpoints — see Generate endpoints below
@@ -166,7 +166,7 @@ No proxy caching — proxies are fetched live from subscription URLs on every ge
 
 ### Generate endpoints
 
-All three share `_run_generate(config: ConfigData)` in `backend/api/routers/generate.py`:
+All three share `_run_generate(config: ConfigData)` in `backend/src/app/routers/generate.py`:
 
 | Endpoint | DB required | Description |
 |---|---|---|
@@ -196,8 +196,7 @@ Users can run this app without a database. The recommended flow:
 - `DATABASE_URL` is optional — omit it entirely to run without a database. CRUD endpoints return 503; generate endpoints work normally.
 - When `DATABASE_URL` is set, it must use `+asyncpg` driver. Alembic's `env.py` automatically swaps to `+psycopg` for sync migration runs.
 - `vite-plugin-monaco-editor` is a CJS package — `vite.config.ts` uses a `.default ??` fallback for ESM interop.
-- Vercel Hobby plan caps serverless functions at 10s — Pro plan needed for slow subscription fetches (`maxDuration: 60`)
-- `mangum` adapter: `lifespan="off"` because serverless has no persistent process lifecycle
+- Vercel Hobby plan caps function execution at 10s — Pro plan needed for slow subscription fetches (`maxDuration: 60` is set in `vercel.json`)
 
 ## Rules
 
@@ -221,6 +220,6 @@ Users can run this app without a database. The recommended flow:
 
 10. **File size limits**: Keep files under 400 lines. Functions under 50 lines. Avoid nesting deeper than 4 levels.
 
-11. **Dependency hygiene**: After `uv add <package>` (from `backend/`), always regenerate with `uv export --no-hashes --no-dev -o api/requirements.txt`. Never edit `uv.lock` or `requirements.txt` by hand.
+11. **Dependency hygiene**: After `uv add <package>` (from `backend/`), always regenerate with `uv export --no-hashes --no-dev -o requirements.txt`. Never edit `uv.lock` or `requirements.txt` by hand.
 
 12. **SQL safety**: Always use SQLAlchemy ORM methods or parameterized queries. Never interpolate user input into raw SQL strings.

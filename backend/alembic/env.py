@@ -5,7 +5,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 # Import models so Base.metadata is populated
-from api.models import Base  # noqa: F401
+from backend.src.app.models import Base  # noqa: F401
 
 config = context.config
 fileConfig(config.config_file_name)  # type: ignore[arg-type]

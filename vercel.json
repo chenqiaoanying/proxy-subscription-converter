@@ -1,15 +1,13 @@
 {
-  "installCommand": "cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/dist",
-  "framework": null,
-  "functions": {
-    "backend/api/index.py": {
-      "runtime": "vercel-python@4",
+  "experimentalServices": {
+    "web": {
+      "entrypoint": "frontend",
+      "routePrefix": "/"
+    },
+    "api": {
+      "entrypoint": "backend/src/app/index.py",
+      "routePrefix": "/api",
       "maxDuration": 60
     }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/backend/api/index" }
-  ]
+  }
 }

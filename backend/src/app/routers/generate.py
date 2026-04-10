@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.database import get_db
-from api.models import Config
-from api.schemas import (
+from src.app.database import get_db
+from src.app.models import Config
+from src.app.schemas import (
     AutoRegionGroupConfig,
     ConfigData,
     GroupConfig,
