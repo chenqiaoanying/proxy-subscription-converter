@@ -118,6 +118,17 @@ export interface ProxyInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Subscription user info (from subscription-userinfo header)
+// ---------------------------------------------------------------------------
+
+export interface SubscriptionUserInfo {
+  upload: number
+  download: number
+  total: number
+  expire: number | null  // Unix timestamp in seconds
+}
+
+// ---------------------------------------------------------------------------
 // Helper defaults
 // ---------------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ from src.app.schemas import (
     SubscriptionConfig,
     SubscriptionPreviewRequest,
     SubscriptionPreviewResponse,
+    SubscriptionUserInfo,
     UrlTestOptions,
 )
 
@@ -147,7 +148,7 @@ def _emit_group(
 
 async def _fetch_subscription(
     name: str, sub: SubscriptionConfig
-) -> tuple[str, list[dict[str, Any]]]:
+) -> tuple[str, list[dict[str, Any]], str | None]:
     headers: dict[str, str] = {}
     if sub.user_agent:
         headers["User-Agent"] = sub.user_agent
@@ -158,20 +159,72 @@ async def _fetch_subscription(
         resp.raise_for_status()
     data = resp.json()
     proxies = [o for o in data.get("outbounds", []) if "server" in o]
-    return name, proxies
+    userinfo = resp.headers.get("subscription-userinfo")
+    return name, proxies, userinfo
+
+
+def _parse_subscription_userinfo(header: str) -> dict[str, int]:
+    """Parse 'upload=N; download=N; total=N; expire=N' into a dict."""
+    result: dict[str, int] = {}
+    for part in header.split(";"):
+        key, _, val = part.strip().partition("=")
+        if key and val:
+            try:
+                result[key.strip()] = int(val.strip())
+            except ValueError:
+                pass
+    return result
+
+
+def _aggregate_subscription_userinfo(infos: list[str]) -> str | None:
+    """Sum upload/download/total and take the earliest expire across subscriptions."""
+    total_upload = 0
+    total_download = 0
+    total_total = 0
+    min_expire: int | None = None
+    has_any = False
+    for info in infos:
+        parsed = _parse_subscription_userinfo(info)
+        if not parsed:
+            continue
+        has_any = True
+        total_upload += parsed.get("upload", 0)
+        total_download += parsed.get("download", 0)
+        total_total += parsed.get("total", 0)
+        if "expire" in parsed:
+            expire = parsed["expire"]
+            if min_expire is None or expire < min_expire:
+                min_expire = expire
+    if not has_any:
+        return None
+    parts = [f"upload={total_upload}", f"download={total_download}", f"total={total_total}"]
+    if min_expire is not None:
+        parts.append(f"expire={min_expire}")
+    return "; ".join(parts)
 
 
 @router.post("/subscriptions/preview", response_model=SubscriptionPreviewResponse)
 async def preview_subscription(req: SubscriptionPreviewRequest) -> SubscriptionPreviewResponse:
     """Fetch proxies from a single subscription URL (no DB, no template)."""
     try:
-        _, proxies = await _fetch_subscription(
+        _, proxies, userinfo_str = await _fetch_subscription(
             "_", SubscriptionConfig(url=req.url, enabled=True, user_agent=req.user_agent)
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch subscription: {e}")
+    userinfo: SubscriptionUserInfo | None = None
+    if userinfo_str:
+        parsed = _parse_subscription_userinfo(userinfo_str)
+        if parsed:
+            userinfo = SubscriptionUserInfo(
+                upload=parsed.get("upload", 0),
+                download=parsed.get("download", 0),
+                total=parsed.get("total", 0),
+                expire=parsed.get("expire"),
+            )
     return SubscriptionPreviewResponse(
-        proxies=[ProxyPreview(tag=p.get("tag", ""), type=p.get("type", "")) for p in proxies]
+        proxies=[ProxyPreview(tag=p.get("tag", ""), type=p.get("type", "")) for p in proxies],
+        userinfo=userinfo,
     )
 
 
@@ -215,7 +268,7 @@ def _topological_sort(groups: list[GroupConfig]) -> list[int]:
     return list(range(len(groups))) if has_cycle else order
 
 
-async def _run_generate(config: ConfigData) -> dict[str, Any]:
+async def _run_generate(config: ConfigData) -> tuple[dict[str, Any], dict[str, str]]:
     sub_cfg = config.subscriber
 
     # Fetch all enabled subscriptions concurrently
@@ -229,11 +282,14 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
         return_exceptions=True,
     )
     proxy_map: dict[str, list[dict[str, Any]]] = {}
+    userinfo_headers: list[str] = []
     for item in fetch_results:
         if isinstance(item, BaseException):
             continue
-        name, proxies = item
+        name, proxies, userinfo = item
         proxy_map[name] = proxies
+        if userinfo:
+            userinfo_headers.append(userinfo)
 
     # Load the template
     template_src = config.config_template
@@ -319,14 +375,19 @@ async def _run_generate(config: ConfigData) -> dict[str, Any]:
     existing_outbounds: list[Any] = template.get("outbounds", [])
     template["outbounds"] = generated_groups + list(all_proxy_outbounds.values()) + existing_outbounds
 
-    return template
+    response_headers: dict[str, str] = {}
+    aggregated_userinfo = _aggregate_subscription_userinfo(userinfo_headers)
+    if aggregated_userinfo:
+        response_headers["subscription-userinfo"] = aggregated_userinfo
+
+    return template, response_headers
 
 
 @router.post("/generate")
 async def generate_from_body(config: ConfigData) -> JSONResponse:
     """Case 1: generate directly from a ConfigData body (no DB needed)."""
-    result = await _run_generate(config)
-    return JSONResponse(content=result)
+    result, headers = await _run_generate(config)
+    return JSONResponse(content=result, headers=headers)
 
 
 @router.get("/generate")
@@ -344,8 +405,8 @@ async def generate_from_url(url: str) -> JSONResponse:
         raise HTTPException(
             status_code=422, detail="URL did not return a valid config document"
         )
-    result = await _run_generate(config)
-    return JSONResponse(content=result)
+    result, headers = await _run_generate(config)
+    return JSONResponse(content=result, headers=headers)
 
 
 @router.get("/configs/{config_id}/generate")
@@ -357,5 +418,5 @@ async def generate_config(
     if not row:
         raise HTTPException(status_code=404, detail="Config not found")
     config = ConfigData.model_validate(row.data)
-    result = await _run_generate(config)
-    return JSONResponse(content=result)
+    result, headers = await _run_generate(config)
+    return JSONResponse(content=result, headers=headers)

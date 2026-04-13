@@ -106,5 +106,13 @@ class ProxyPreview(BaseModel):
     type: str
 
 
+class SubscriptionUserInfo(BaseModel):
+    upload: int = 0
+    download: int = 0
+    total: int = 0
+    expire: int | None = None  # Unix timestamp in seconds
+
+
 class SubscriptionPreviewResponse(BaseModel):
     proxies: list[ProxyPreview]
+    userinfo: SubscriptionUserInfo | None = None

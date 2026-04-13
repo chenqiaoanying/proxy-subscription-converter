@@ -6,10 +6,28 @@ import {
   type ConfigListItem,
   type ConfigOut,
   type ProxyInfo,
+  type SubscriptionUserInfo,
   ConfigListItemSchema,
   ConfigOutSchema,
   emptyConfigData,
 } from '@/types'
+
+function parseSubscriptionUserInfo(header: string): SubscriptionUserInfo {
+  const fields: Record<string, number> = {}
+  for (const part of header.split(';')) {
+    const [key, val] = part.trim().split('=')
+    if (key && val) {
+      const n = parseInt(val.trim(), 10)
+      if (!isNaN(n)) fields[key.trim()] = n
+    }
+  }
+  return {
+    upload: fields['upload'] ?? 0,
+    download: fields['download'] ?? 0,
+    total: fields['total'] ?? 0,
+    expire: fields['expire'] ?? null,
+  }
+}
 
 export const useConfigStore = defineStore('configs', {
   state: () => ({
@@ -19,6 +37,7 @@ export const useConfigStore = defineStore('configs', {
     error: null as string | null,
     subscriptionPreviews: {} as Record<string, ProxyInfo[]>,
     previewLoading: {} as Record<string, boolean>,
+    subscriptionUserInfos: {} as Record<string, SubscriptionUserInfo>,
   }),
 
   actions: {
@@ -82,18 +101,25 @@ export const useConfigStore = defineStore('configs', {
       this.previewLoading = { ...this.previewLoading, [name]: true }
       try {
         let proxies: ProxyInfo[]
+        let userinfo: SubscriptionUserInfo | null = null
         if (userAgent) {
           const res = await axios.post('/api/subscriptions/preview', { url, user_agent: userAgent })
           proxies = res.data.proxies
+          if (res.data.userinfo) userinfo = res.data.userinfo
         } else {
           const res = await fetch(url)
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const raw = res.headers.get('subscription-userinfo')
+          if (raw) userinfo = parseSubscriptionUserInfo(raw)
           const data: { outbounds?: Record<string, unknown>[] } = await res.json()
           proxies = (data.outbounds ?? [])
             .filter((o) => 'server' in o)
             .map((o) => ({ tag: String(o.tag ?? ''), type: String(o.type ?? '') }))
         }
         this.subscriptionPreviews = { ...this.subscriptionPreviews, [name]: proxies }
+        if (userinfo) {
+          this.subscriptionUserInfos = { ...this.subscriptionUserInfos, [name]: userinfo }
+        }
       } finally {
         this.previewLoading = { ...this.previewLoading, [name]: false }
       }

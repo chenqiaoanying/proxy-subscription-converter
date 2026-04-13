@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { type SubscriptionConfig, emptySubscription } from '@/types'
+import { type SubscriptionConfig, type SubscriptionUserInfo, emptySubscription } from '@/types'
 import { useConfigStore } from '@/stores/configs'
 
 const model = defineModel<Record<string, SubscriptionConfig>>({ required: true })
@@ -58,6 +58,45 @@ async function handleLoad(key: string, sub: SubscriptionConfig) {
     ElMessage.error(`Failed to load "${key}": ${String(e)}`)
   }
 }
+
+// --- Quota helpers ---
+
+function formatBytes(bytes: number): string {
+  const gb = bytes / 1073741824
+  if (gb >= 1) return `${gb.toFixed(1)} GB`
+  const mb = bytes / 1048576
+  return `${mb.toFixed(0)} MB`
+}
+
+function quotaPercent(info: SubscriptionUserInfo): number {
+  if (!info.total) return 0
+  return Math.min(100, ((info.upload + info.download) / info.total) * 100)
+}
+
+function quotaStatus(percent: number): '' | 'warning' | 'exception' {
+  if (percent >= 90) return 'exception'
+  if (percent >= 75) return 'warning'
+  return ''
+}
+
+// --- Expiry helpers ---
+
+function daysLeft(expire: number): number {
+  return Math.floor((expire * 1000 - Date.now()) / 86400000)
+}
+
+function formatExpiry(expire: number): string {
+  return new Date(expire * 1000).toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+  })
+}
+
+function expiryColor(expire: number): string {
+  const days = daysLeft(expire)
+  if (days <= 7) return 'var(--el-color-danger)'
+  if (days <= 30) return 'var(--el-color-warning)'
+  return 'inherit'
+}
 </script>
 
 <template>
@@ -73,18 +112,18 @@ async function handleLoad(key: string, sub: SubscriptionConfig) {
       <el-table-column label="Name (Key)" width="160" show-overflow-tooltip>
         <template #default="{ row: [key] }">{{ key }}</template>
       </el-table-column>
-      <el-table-column label="URL" min-width="200" show-overflow-tooltip>
+      <el-table-column label="URL" min-width="180" show-overflow-tooltip>
         <template #default="{ row: [, s] }">{{ s.url }}</template>
       </el-table-column>
-      <el-table-column label="User-Agent" width="130" show-overflow-tooltip>
+      <el-table-column label="User-Agent" width="120" show-overflow-tooltip>
         <template #default="{ row: [, s] }">{{ s.user_agent ?? '—' }}</template>
       </el-table-column>
-      <el-table-column label="Enabled" width="90">
+      <el-table-column label="Enabled" width="80">
         <template #default="{ row: [key, s] }">
           <el-switch :model-value="s.enabled" @change="toggleEnabled(key)" />
         </template>
       </el-table-column>
-      <el-table-column label="Proxies" width="80">
+      <el-table-column label="Proxies" width="72">
         <template #default="{ row: [key] }">
           <span v-if="store.subscriptionPreviews[key] !== undefined">
             {{ store.subscriptionPreviews[key].length }}
@@ -92,7 +131,36 @@ async function handleLoad(key: string, sub: SubscriptionConfig) {
           <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="180" fixed="right">
+      <el-table-column label="Quota" width="190">
+        <template #default="{ row: [key] }">
+          <template v-if="store.subscriptionUserInfos[key] && store.subscriptionUserInfos[key].total > 0">
+            <el-progress
+              :percentage="quotaPercent(store.subscriptionUserInfos[key])"
+              :status="quotaStatus(quotaPercent(store.subscriptionUserInfos[key])) || undefined"
+              :stroke-width="7"
+              :show-text="false"
+            />
+            <div class="quota-text">
+              {{ formatBytes(store.subscriptionUserInfos[key].upload + store.subscriptionUserInfos[key].download) }}
+              <span style="color: #999"> / </span>
+              {{ formatBytes(store.subscriptionUserInfos[key].total) }}
+            </div>
+          </template>
+          <span v-else style="color: #999">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Expires" width="130">
+        <template #default="{ row: [key] }">
+          <template v-if="store.subscriptionUserInfos[key]?.expire">
+            <div :style="{ color: expiryColor(store.subscriptionUserInfos[key].expire!) }">
+              <div>{{ formatExpiry(store.subscriptionUserInfos[key].expire!) }}</div>
+              <div class="days-left">{{ daysLeft(store.subscriptionUserInfos[key].expire!) }} days left</div>
+            </div>
+          </template>
+          <span v-else style="color: #999">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="140" fixed="right">
         <template #default="{ row: [key, s] }">
           <el-button
             size="small"
@@ -144,5 +212,18 @@ async function handleLoad(key: string, sub: SubscriptionConfig) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.quota-text {
+  font-size: 11px;
+  color: #606266;
+  margin-top: 3px;
+  line-height: 1.2;
+}
+
+.days-left {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-top: 2px;
 }
 </style>
