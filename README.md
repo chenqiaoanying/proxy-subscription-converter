@@ -1,4 +1,4 @@
-# Proxy Subscribe Converter
+# Proxy Subscription Converter
 
 A serverless web app that aggregates sing-box proxy subscriptions, lets you define filters, and generates a ready-to-use sing-box config — with or without a database.
 

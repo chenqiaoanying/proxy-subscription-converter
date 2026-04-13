@@ -22,7 +22,7 @@ function closeEditor() {
 <template>
   <el-container style="height: 100vh">
     <el-header style="display: flex; align-items: center; background: #1d2939; padding: 0 24px">
-      <span style="color: #fff; font-size: 18px; font-weight: 600">Proxy Subscribe Converter</span>
+      <span style="color: #fff; font-size: 18px; font-weight: 600">Proxy Subscription Converter</span>
     </el-header>
     <el-main style="padding: 0; overflow: hidden">
       <ConfigListPage
