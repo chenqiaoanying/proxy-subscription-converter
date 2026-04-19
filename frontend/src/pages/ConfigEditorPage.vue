@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import YAML from 'yaml'
 import { useConfigStore } from '@/stores/configs'
 import { type ConfigData, ConfigDataSchema, emptyConfigData } from '@/types'
 import SubscriptionsPanel from '@/components/SubscriptionsPanel.vue'
@@ -133,17 +134,31 @@ function handleExportConfigJson() {
   dirty.value = false
 }
 
-function handleImportConfigJson() {
+function handleExportConfigYaml() {
+  const text = YAML.stringify(configData.value)
+  const blob = new Blob([text], { type: 'application/yaml' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'proxy-subscribe-config.yaml'
+  a.click()
+  URL.revokeObjectURL(url)
+  dirty.value = false
+}
+
+function handleImportConfig(format: 'json' | 'yaml') {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = '.json,application/json'
+  input.accept = format === 'yaml' ? '.yaml,.yml' : '.json,application/json'
   input.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const parsed = ConfigDataSchema.parse(JSON.parse(ev.target?.result as string))
+        const text = ev.target?.result as string
+        const raw = format === 'yaml' ? YAML.parse(text) : JSON.parse(text)
+        const parsed = ConfigDataSchema.parse(raw)
         skipDirtyWatch = true
         configData.value = parsed
         nextTick(() => { skipDirtyWatch = false })
@@ -156,6 +171,14 @@ function handleImportConfigJson() {
     reader.readAsText(file)
   }
   input.click()
+}
+
+function handleImportConfigJson() {
+  handleImportConfig('json')
+}
+
+function handleImportConfigYaml() {
+  handleImportConfig('yaml')
 }
 
 function copyToClipboard(text: string) {
@@ -173,14 +196,32 @@ function copyToClipboard(text: string) {
         Back
       </el-button>
       <el-input v-model="configName" style="max-width: 320px" placeholder="Config name" />
-      <el-button @click="handleImportConfigJson">
-        <el-icon><Upload /></el-icon>
-        Import
-      </el-button>
-      <el-button @click="handleExportConfigJson">
-        <el-icon><Download /></el-icon>
-        Export
-      </el-button>
+      <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleImportConfigJson() : handleImportConfigYaml()">
+        <el-button>
+          <el-icon><Upload /></el-icon>
+          Import
+          <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="json">Import JSON</el-dropdown-item>
+            <el-dropdown-item command="yaml">Import YAML</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+      <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleExportConfigJson() : handleExportConfigYaml()">
+        <el-button>
+          <el-icon><Download /></el-icon>
+          Export
+          <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="json">Export JSON</el-dropdown-item>
+            <el-dropdown-item command="yaml">Export YAML</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
         Save
@@ -252,12 +293,21 @@ function copyToClipboard(text: string) {
             <div style="display: flex; flex-direction: column; gap: 20px">
               <!-- Step 1 -->
               <div>
-                <el-text tag="b" size="small">Step 1 — Export your config JSON</el-text>
+                <el-text tag="b" size="small">Step 1 — Export your config</el-text>
                 <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px">
-                  <el-button @click="handleExportConfigJson">
-                    <el-icon><Download /></el-icon>
-                    Export Config JSON
-                  </el-button>
+                  <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleExportConfigJson() : handleExportConfigYaml()">
+                    <el-button>
+                      <el-icon><Download /></el-icon>
+                      Export Config
+                      <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="json">Export JSON</el-dropdown-item>
+                        <el-dropdown-item command="yaml">Export YAML</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                   <el-text type="info" size="small">
                     Upload this file to a GitHub Gist or S3 bucket and copy the raw URL.
                   </el-text>

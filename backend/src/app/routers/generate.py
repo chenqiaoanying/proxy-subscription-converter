@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 import httpx
+import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -390,6 +391,21 @@ async def generate_from_body(config: ConfigData) -> JSONResponse:
     return JSONResponse(content=result, headers=headers)
 
 
+def _is_yaml_response(url: str, content_type: str) -> bool:
+    """Return True if the response should be parsed as YAML."""
+    url_lower = url.lower().split("?")[0]
+    if url_lower.endswith((".yaml", ".yml")):
+        return True
+    return "yaml" in content_type
+
+
+def _parse_config_body(text: str, as_yaml: bool) -> Any:
+    if as_yaml:
+        return yaml.safe_load(text)
+    import json
+    return json.loads(text)
+
+
 @router.get("/generate")
 async def generate_from_url(url: str) -> JSONResponse:
     """Case 2: fetch ConfigData from a URL (Gist, S3, etc.) and generate (no DB needed)."""
@@ -400,7 +416,9 @@ async def generate_from_url(url: str) -> JSONResponse:
     except httpx.HTTPError as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch config URL: {e}")
     try:
-        config = ConfigData.model_validate(resp.json())
+        as_yaml = _is_yaml_response(url, resp.headers.get("content-type", ""))
+        raw = _parse_config_body(resp.text, as_yaml)
+        config = ConfigData.model_validate(raw)
     except Exception:
         raise HTTPException(
             status_code=422, detail="URL did not return a valid config document"
