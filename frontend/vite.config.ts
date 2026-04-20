@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import monacoEditorPluginModule from 'vite-plugin-monaco-editor'
-const monacoEditorPlugin = (monacoEditorPluginModule as any).default ?? monacoEditorPluginModule
+import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm'
 import { resolve } from 'path'
 
 export default defineConfig({
