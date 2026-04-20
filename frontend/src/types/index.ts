@@ -69,9 +69,22 @@ export const SubscriberConfigSchema = z.object({
   groups: z.array(GroupConfigSchema).default([]),
 })
 
+export const TARGET_FORMATS = ['sing-box', 'clash'] as const
+export const TargetFormatSchema = z.enum(TARGET_FORMATS)
+export type TargetFormat = z.infer<typeof TargetFormatSchema>
+
+export const ConfigTemplateValueSchema = z
+  .union([z.string(), z.record(z.unknown())])
+  .nullable()
+
+export const ConfigTemplateMapSchema = z.record(
+  TargetFormatSchema,
+  ConfigTemplateValueSchema,
+)
+
 export const ConfigDataSchema = z.object({
   subscriber: SubscriberConfigSchema.default({ subscriptions: {}, groups: [] }),
-  config_template: z.union([z.string(), z.record(z.unknown())]).nullable().optional(),
+  config_template: ConfigTemplateMapSchema.default({}),
 })
 
 // ---------------------------------------------------------------------------
@@ -104,6 +117,8 @@ export type AutoRegionGroupConfig = z.infer<typeof AutoRegionGroupConfigSchema>
 export type GroupConfig = z.infer<typeof GroupConfigSchema>
 export type SubscriptionConfig = z.infer<typeof SubscriptionConfigSchema>
 export type SubscriberConfig = z.infer<typeof SubscriberConfigSchema>
+export type ConfigTemplateValue = z.infer<typeof ConfigTemplateValueSchema>
+export type ConfigTemplateMap = z.infer<typeof ConfigTemplateMapSchema>
 export type ConfigData = z.infer<typeof ConfigDataSchema>
 export type ConfigListItem = z.infer<typeof ConfigListItemSchema>
 export type ConfigOut = z.infer<typeof ConfigOutSchema>
@@ -145,5 +160,5 @@ export function emptySubscription(): SubscriptionConfig {
 }
 
 export function emptyConfigData(): ConfigData {
-  return { subscriber: { subscriptions: {}, groups: [] }, config_template: null }
+  return { subscriber: { subscriptions: {}, groups: [] }, config_template: {} }
 }

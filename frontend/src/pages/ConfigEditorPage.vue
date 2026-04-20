@@ -3,7 +3,13 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import YAML from 'yaml'
 import { useConfigStore } from '@/stores/configs'
-import { type ConfigData, ConfigDataSchema, emptyConfigData } from '@/types'
+import {
+  TARGET_FORMATS,
+  type ConfigData,
+  type TargetFormat,
+  ConfigDataSchema,
+  emptyConfigData,
+} from '@/types'
 import SubscriptionsPanel from '@/components/SubscriptionsPanel.vue'
 import GroupsPanel from '@/components/GroupsPanel.vue'
 import TemplatePanel from '@/components/TemplatePanel.vue'
@@ -22,12 +28,21 @@ const loading = ref(false)
 const generating = ref(false)
 const configUrl = ref('')
 const previewVisible = ref(false)
-const previewJson = ref('')
+const previewBody = ref('')
+const previewLanguage = ref<'json' | 'yaml'>('json')
+const previewDropped = ref(0)
+const targetFormat = ref<TargetFormat>('sing-box')
 const dirty = ref(false)
 let skipDirtyWatch = false
 
 const statelessGenerateUrl = computed(() =>
-  configUrl.value ? store.getStatelessGenerateUrl(configUrl.value) : ''
+  configUrl.value
+    ? store.getStatelessGenerateUrl(configUrl.value, targetFormat.value)
+    : '',
+)
+
+const generateFileName = computed(() =>
+  targetFormat.value === 'clash' ? 'clash-config.yaml' : 'singbox-config.json',
 )
 
 onMounted(async () => {
@@ -63,6 +78,22 @@ function downloadJson(data: object, filename: string) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function downloadText(text: string, filename: string, mediaType: string) {
+  const blob = new Blob([text], { type: mediaType || 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function notifyDropped(n: number) {
+  if (n > 0) {
+    ElMessage.warning(`${n} proxies dropped (protocol not supported in target format)`)
+  }
 }
 
 async function handleBack() {
@@ -107,8 +138,9 @@ async function handleSave() {
 async function handleGenerate() {
   generating.value = true
   try {
-    const result = await store.generate(configData.value)
-    downloadJson(result, 'singbox-config.json')
+    const result = await store.generate(configData.value, targetFormat.value)
+    downloadText(result.body, generateFileName.value, result.mediaType)
+    notifyDropped(result.dropped)
   } catch (e) {
     ElMessage.error('Generate failed: ' + String(e))
   } finally {
@@ -119,8 +151,10 @@ async function handleGenerate() {
 async function handlePreview() {
   generating.value = true
   try {
-    const result = await store.generate(configData.value)
-    previewJson.value = JSON.stringify(result, null, 2)
+    const result = await store.generate(configData.value, targetFormat.value)
+    previewBody.value = result.body
+    previewLanguage.value = targetFormat.value === 'clash' ? 'yaml' : 'json'
+    previewDropped.value = result.dropped
     previewVisible.value = true
   } catch (e) {
     ElMessage.error('Generate failed: ' + String(e))
@@ -229,10 +263,17 @@ function copyToClipboard(text: string) {
       <template v-if="localConfigId">
         <el-divider direction="vertical" />
         <el-text type="info" size="small">Saved generate URL:</el-text>
-        <el-link :href="store.getGenerateUrl(localConfigId)" target="_blank" type="primary">
-          {{ store.getGenerateUrl(localConfigId) }}
+        <el-link
+          :href="store.getGenerateUrl(localConfigId, targetFormat)"
+          target="_blank"
+          type="primary"
+        >
+          {{ store.getGenerateUrl(localConfigId, targetFormat) }}
         </el-link>
-        <el-button size="small" @click="copyToClipboard(store.getGenerateUrl(localConfigId!))">
+        <el-button
+          size="small"
+          @click="copyToClipboard(store.getGenerateUrl(localConfigId!, targetFormat))"
+        >
           <el-icon><CopyDocument /></el-icon>
         </el-button>
       </template>
@@ -258,12 +299,21 @@ function copyToClipboard(text: string) {
           <!-- Case 1: Direct generate & download -->
           <el-card>
             <template #header>
-              <el-text tag="b">Generate Sing-box Config</el-text>
+              <el-text tag="b">Generate Config</el-text>
             </template>
             <el-text type="info">
-              Fetch your subscriptions, apply groups, and download the merged sing-box config.
+              Fetch your subscriptions, apply groups, and download the merged config
+              in the selected target format.
             </el-text>
-            <div style="margin-top: 16px; display: flex; gap: 12px">
+            <div style="margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+              <span>
+                <el-text size="small" style="margin-right: 8px">Target format:</el-text>
+                <el-radio-group v-model="targetFormat" size="small">
+                  <el-radio-button v-for="fmt in TARGET_FORMATS" :key="fmt" :value="fmt">
+                    {{ fmt }}
+                  </el-radio-button>
+                </el-radio-group>
+              </span>
               <el-button type="primary" :loading="generating" @click="handlePreview">
                 <el-icon><View /></el-icon>
                 Preview
@@ -348,7 +398,7 @@ function copyToClipboard(text: string) {
                   </template>
                 </el-input>
                 <el-text v-if="statelessGenerateUrl" type="success" size="small" style="margin-top: 6px; display: block">
-                  Use this URL as a remote profile in sing-box.
+                  Use this URL as a remote profile in {{ targetFormat === 'clash' ? 'Mihomo/Clash' : 'sing-box' }}.
                 </el-text>
               </div>
             </div>
@@ -361,14 +411,21 @@ function copyToClipboard(text: string) {
     <!-- Preview dialog -->
     <el-dialog
       v-model="previewVisible"
-      title="Generated Sing-box Config"
+      :title="`Generated ${targetFormat} Config`"
       width="80%"
       top="5vh"
       destroy-on-close
     >
+      <el-alert
+        v-if="previewDropped > 0"
+        :title="`${previewDropped} proxies were dropped (protocol not supported in ${targetFormat})`"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 12px"
+      />
       <MonacoEditor
-        :model-value="previewJson"
-        language="json"
+        :model-value="previewBody"
+        :language="previewLanguage"
         :readonly="true"
         height="70vh"
         style="border: 1px solid #dcdfe6; border-radius: 4px"

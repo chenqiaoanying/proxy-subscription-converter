@@ -1,16 +1,20 @@
 # Proxy Subscription Converter
 
-A serverless web app that aggregates sing-box proxy subscriptions, lets you define filters, and generates a ready-to-use sing-box config — with or without a database.
+A serverless web app that aggregates proxy subscriptions (sing-box or Clash), lets you
+define filters, and generates a ready-to-use config — with or without a database.
 
 ## Features
 
 - Manage multiple proxy subscription URLs with custom names
+- Auto-detect subscription format: sing-box JSON or Clash/Mihomo YAML
 - Define static groups with include/exclude rules (pattern, proxy type, regex, case sensitivity)
-- Auto-region groups that dynamically expand into a parent outbound group containing per-region sub-groups at generate-time
-- Generate sing-box configs on demand — proxies are always fetched live (no caching)
-- Monaco editor for inline JSON template editing with sing-box schema validation
-- **Stateless mode**: no database required — host your config on GitHub Gist or S3 and use a stable `?url=` generate link
-- **Server-side mode**: optionally save configs to Neon PostgreSQL for a permanent per-ID generate URL
+- Auto-region groups that dynamically expand into per-region sub-groups at generate-time
+- Generate sing-box JSON or Clash YAML on demand — proxies always fetched live (no caching)
+- Monaco editor for inline JSON/YAML template editing with schema validation
+- **Stateless mode**: no database required — host your config on GitHub Gist or S3 and use a
+  stable `?url=&format=` generate link
+- **Server-side mode**: optionally save configs to Neon PostgreSQL for a permanent per-ID
+  generate URL
 
 ## Stack
 
@@ -46,8 +50,10 @@ Open [http://localhost:5173](http://localhost:5173). No `.env` file needed.
 5. Use that URL as a remote profile in sing-box:
 
 ```
-GET https://your-app.vercel.app/api/generate?url=https://gist.githubusercontent.com/user/abc/raw/config.json
+GET https://your-app.vercel.app/api/generate?url=https://gist.githubusercontent.com/user/abc/raw/config.json&format=sing-box
 ```
+
+Append `&format=clash` to generate a Clash config instead.
 
 No account needed on the converter server. The config lives in your own Gist/S3.
 
@@ -101,29 +107,49 @@ Set up the database (see below), save your config via the UI, and point sing-box
       }
     ]
   },
-  "config_template": "https://example.com/template.json"
+  "config_template": {
+    "sing-box": "https://example.com/sing-box-template.json",
+    "clash": "https://example.com/clash-template.yaml"
+  }
 }
 ```
 
-`config_template` can be a URL (fetched at generate time) or an inline JSON object.
+`config_template` keys are target format names (`sing-box`, `clash`). Each value can be a URL
+(fetched at generate time), an inline object, or `null`. Subscriptions are auto-detected and
+converted if needed.
 
 **Group types:**
 
-- **Static** (`type: "selector" | "urltest"`): Creates a single outbound group. Collects proxies from the `imports` list and applies include/exclude rules to filter them.
-- **Auto-region** (`type: "auto_region"`): Dynamically generates a parent outbound group containing one sub-group per detected region. `group_tag` names the parent; `sub_group_tag` is a template with a `{region}` placeholder (e.g., `"{region} Nodes"` → `"HK Nodes"`, `"JP Nodes"`, …). `group_type` sets the parent's sing-box type; `sub_group_type` sets the sub-groups' type. Use `regions: "auto"` to detect all regions dynamically (unmatched proxies go into an `"Others"` catch-all), or specify `regions: ["HK", "JP", "US"]` to emit groups in that explicit order.
+- **Static** (`type: "selector" | "urltest"`): Creates a single outbound group. Collects proxies
+  from the `imports` list and applies include/exclude rules to filter them.
+- **Auto-region** (`type: "auto_region"`): Dynamically generates a parent outbound group
+  containing one sub-group per detected region. `group_tag` names the parent; `sub_group_tag`
+  is a template with a `{region}` placeholder (e.g., `"{region} Nodes"` → `"HK Nodes"`,
+  `"JP Nodes"`, …). `group_type` sets the parent's type; `sub_group_type` sets the sub-groups'
+  type. Use `regions: "auto"` to detect regions dynamically (unmatched proxies → `"Others"`
+  catch-all), or specify `regions: ["HK", "JP", "US"]` for explicit order.
 
-**`imports` field**: Each item in `imports` can be either a subscription name (draws raw proxies from that subscription) or another group's tag (draws that group's filtered proxy output, enabling composition). Leave empty to use all subscriptions. Circular imports are detected and fall back to definition order.
+**`imports` field**: Each item in `imports` can be either a subscription name (draws raw proxies
+from that subscription) or another group's tag (draws that group's filtered proxy output,
+enabling composition). Leave empty to use all subscriptions. Circular imports are detected and
+fall back to definition order.
 
 ## API
 
-| Method | Path | DB required | Description |
-|---|---|---|---|
-| `POST` | `/api/generate` | No | Body: `ConfigData` JSON — generate and return sing-box config |
-| `GET` | `/api/generate?url=<url>` | No | Fetch `ConfigData` from URL, generate and return |
-| `GET` | `/api/configs/{id}/generate` | Yes | Load config from DB by ID, generate and return |
-| `GET` | `/api/configs` | Yes | List all saved configs |
-| `POST` | `/api/configs` | Yes | Create a config |
-| `GET/PUT/DELETE` | `/api/configs/{id}` | Yes | Read / update / delete a config |
+All generate endpoints accept optional `?format=sing-box|clash` (defaults to `sing-box`):
+
+| Method | Path | DB required | Response | Description |
+|---|---|---|---|---|
+| `POST` | `/api/generate?format=...` | No | JSON or YAML | Generate from `ConfigData` body |
+| `GET` | `/api/generate?url=<url>&format=...` | No | JSON or YAML | Fetch `ConfigData` from URL, generate |
+| `GET` | `/api/configs/{id}/generate?format=...` | Yes | JSON or YAML | Load config from DB by ID, generate |
+| `GET` | `/api/configs` | Yes | JSON | List all saved configs |
+| `POST` | `/api/configs` | Yes | JSON | Create a config |
+| `GET/PUT/DELETE` | `/api/configs/{id}` | Yes | JSON | Read / update / delete a config |
+
+Subscriptions are auto-detected (sing-box JSON or Clash YAML) and converted to the target
+format if needed. Response header `X-Dropped-Proxies: <N>` indicates proxies dropped during
+cross-format conversion.
 
 ## Database Setup (optional)
 

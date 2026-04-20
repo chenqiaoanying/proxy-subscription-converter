@@ -7,26 +7,17 @@ import {
   type ConfigOut,
   type ProxyInfo,
   type SubscriptionUserInfo,
+  type TargetFormat,
   ConfigListItemSchema,
   ConfigOutSchema,
   emptyConfigData,
 } from '@/types'
 
-function parseSubscriptionUserInfo(header: string): SubscriptionUserInfo {
-  const fields: Record<string, number> = {}
-  for (const part of header.split(';')) {
-    const [key, val] = part.trim().split('=')
-    if (key && val) {
-      const n = parseInt(val.trim(), 10)
-      if (!isNaN(n)) fields[key.trim()] = n
-    }
-  }
-  return {
-    upload: fields['upload'] ?? 0,
-    download: fields['download'] ?? 0,
-    total: fields['total'] ?? 0,
-    expire: fields['expire'] ?? null,
-  }
+export interface GenerateResult {
+  format: TargetFormat
+  body: string
+  mediaType: string
+  dropped: number
 }
 
 export const useConfigStore = defineStore('configs', {
@@ -84,38 +75,41 @@ export const useConfigStore = defineStore('configs', {
       if (this.current?.id === id) this.current = null
     },
 
-    getGenerateUrl(id: string): string {
-      return `${window.location.origin}/api/configs/${id}/generate`
+    getGenerateUrl(id: string, format: TargetFormat): string {
+      return `${window.location.origin}/api/configs/${id}/generate?format=${format}`
     },
 
-    getStatelessGenerateUrl(configUrl: string): string {
-      return `${window.location.origin}/api/generate?url=${encodeURIComponent(configUrl)}`
+    getStatelessGenerateUrl(configUrl: string, format: TargetFormat): string {
+      return (
+        `${window.location.origin}/api/generate` +
+        `?url=${encodeURIComponent(configUrl)}&format=${format}`
+      )
     },
 
-    async generate(data: ConfigData): Promise<object> {
-      const res = await axios.post('/api/generate', data)
-      return res.data
+    async generate(data: ConfigData, format: TargetFormat): Promise<GenerateResult> {
+      const res = await axios.post(`/api/generate?format=${format}`, data, {
+        responseType: 'text',
+        transformResponse: (v: unknown) => v,
+      })
+      const mediaType = String(res.headers['content-type'] ?? '').split(';')[0].trim()
+      const droppedHeader = res.headers['x-dropped-proxies']
+      return {
+        format,
+        body: String(res.data ?? ''),
+        mediaType,
+        dropped: droppedHeader ? Number(droppedHeader) : 0,
+      }
     },
 
     async previewSubscription(name: string, url: string, userAgent?: string | null) {
       this.previewLoading = { ...this.previewLoading, [name]: true }
       try {
-        let proxies: ProxyInfo[]
-        let userinfo: SubscriptionUserInfo | null = null
-        if (userAgent) {
-          const res = await axios.post('/api/subscriptions/preview', { url, user_agent: userAgent })
-          proxies = res.data.proxies
-          if (res.data.userinfo) userinfo = res.data.userinfo
-        } else {
-          const res = await fetch(url)
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          const raw = res.headers.get('subscription-userinfo')
-          if (raw) userinfo = parseSubscriptionUserInfo(raw)
-          const data: { outbounds?: Record<string, unknown>[] } = await res.json()
-          proxies = (data.outbounds ?? [])
-            .filter((o) => 'server' in o)
-            .map((o) => ({ tag: String(o.tag ?? ''), type: String(o.type ?? '') }))
-        }
+        const res = await axios.post('/api/subscriptions/preview', {
+          url,
+          user_agent: userAgent ?? null,
+        })
+        const proxies: ProxyInfo[] = res.data.proxies
+        const userinfo: SubscriptionUserInfo | null = res.data.userinfo ?? null
         this.subscriptionPreviews = { ...this.subscriptionPreviews, [name]: proxies }
         if (userinfo) {
           this.subscriptionUserInfos = { ...this.subscriptionUserInfos, [name]: userinfo }

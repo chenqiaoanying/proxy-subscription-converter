@@ -62,9 +62,14 @@ class SubscriberConfig(BaseModel):
     groups: list[GroupConfig] = []
 
 
+TargetFormat = Literal["sing-box", "clash"]
+
+
 class ConfigData(BaseModel):
     subscriber: SubscriberConfig = SubscriberConfig()
-    config_template: str | dict[str, Any] | None = None
+    config_template: dict[TargetFormat, str | dict[str, Any] | None] = Field(
+        default_factory=dict
+    )
 
 
 class ConfigCreate(BaseModel):

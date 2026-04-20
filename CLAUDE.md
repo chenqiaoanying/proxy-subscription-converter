@@ -35,12 +35,27 @@ There are no test scripts configured.
 
 ## Architecture
 
-A serverless Vercel app that converts proxy subscriptions into sing-box configs.
+A serverless Vercel app that converts proxy subscriptions into sing-box or Clash (Mihomo)
+configs, with auto-detection of input format and optional multi-format templates.
 
 **Frontend**: Vue 3 SPA (Vite + TypeScript) — built to `dist/`, served by Vercel as static files.
-**Backend**: Python FastAPI in `backend/src/app/index.py` — deployed as a Vercel Service via `experimentalServices` in `vercel.json`.
-**Database**: Optional. Neon PostgreSQL (serverless Postgres) via SQLAlchemy async + asyncpg. Required only for saving configs server-side. The app starts and the generate endpoints work without it.
-**Routing**: `vercel.json` `experimentalServices` routes `/api/*` to the Python service at `backend/src/app/index.py`; Vite dev proxy does the same locally.
+**Backend**: Python FastAPI in `backend/src/app/index.py` — deployed as a Vercel Service via
+`experimentalServices` in `vercel.json`.
+**Database**: Optional. Neon PostgreSQL (serverless Postgres) via SQLAlchemy async + asyncpg.
+Required only for saving configs server-side. The app starts and the generate endpoints work
+without it.
+**Routing**: `vercel.json` `experimentalServices` routes `/api/*` to the Python service at
+`backend/src/app/index.py`; Vite dev proxy does the same locally.
+
+### Format support
+
+**Subscription sources** (parsers): auto-detected from URL suffix or Content-Type header, falls
+back to content sniffing. Currently supported: sing-box JSON, Clash/Mihomo YAML.
+
+**Template targets** (emitters): user specifies via `config_template` dict keys or `?format=`
+query param. Returns JSON for sing-box, YAML for Clash. Proxies dropped during cross-format
+conversion (e.g., unsupported protocol) are tracked in `X-Dropped-Proxies` response header.
+`UnknownProxy` preserves raw dicts for loss-free same-format round-trips.
 
 ### Project structure
 
@@ -54,9 +69,18 @@ backend/
     database.py       Async SQLAlchemy engine, session factory, Base — optional DB init
     models.py         ORM: Config model (id, name, data JSONB, timestamps)
     schemas.py        Pydantic v2 models for request/response and config doc structure
+    formats/
+      __init__.py     Registries: PARSERS, EMITTERS, SUPPORTED_TARGETS
+      base.py         SubscriptionParser & TargetEmitter Protocols; ParseError, UnsupportedFormatError
+      model.py        Unified Proxy discriminated union (Shadowsocks, Vmess, Vless, Trojan, Hysteria2,
+                      Tuic, Wireguard, Http, Socks, Unknown); ProxyGroup, TlsConfig, TransportConfig
+      common.py       Clash ↔ unified TLS/transport helpers (flat fields → nested sing-box)
+      sing_box.py     SingBoxParser (outbounds: []), SingBoxEmitter (JSON)
+      clash.py        ClashParser (proxies: []), ClashEmitter (YAML via PyYAML)
+      detect.py       detect_source_format() — auto-detect via suffix / content-type / sniffing
     routers/
       configs.py      CRUD: GET/POST /api/configs, GET/PUT/DELETE /api/configs/{id} (requires DB)
-      generate.py     Three generate endpoints — see Generate endpoints below
+      generate.py     Three generate endpoints; shared _run_generate operates on unified Proxy
   alembic/
     alembic.ini       Alembic configuration (script_location = %(here)s)
     env.py            Migration environment (strips +asyncpg → +psycopg for sync runs)
@@ -123,9 +147,15 @@ Each config follows this shape (see `example.json`):
       }
     ]
   },
-  "config_template": "https://... or inline JSON object"
+  "config_template": {
+    "sing-box": "https://... or inline JSON object or null",
+    "clash": "https://... or inline YAML/JSON object or null"
+  }
 }
 ```
+
+**Legacy format**: `config_template` as a bare string or inline object is auto-wrapped into
+`{"sing-box": value}` for backward compatibility. Existing configs work without modification.
 
 **Group types:**
 
@@ -166,20 +196,29 @@ No proxy caching — proxies are fetched live from subscription URLs on every ge
 
 ### Generate endpoints
 
-All three share `_run_generate(config: ConfigData)` in `backend/src/app/routers/generate.py`:
+All three share `_run_generate(config: ConfigData, target: str | None)` in
+`backend/src/app/routers/generate.py`. All endpoints accept optional `?format=sing-box|clash`:
 
-| Endpoint | DB required | Description |
-|---|---|---|
-| `POST /api/generate` | No | Body is `ConfigData` JSON — generate and return directly |
-| `GET /api/generate?url=<url>` | No | Fetch `ConfigData` from a URL (Gist, S3, etc.), generate and return |
-| `GET /api/configs/{id}/generate` | Yes | Load `ConfigData` from DB by ID, generate and return |
+| Endpoint | DB required | Response format | Description |
+|---|---|---|---|
+| `POST /api/generate?format=...` | No | JSON or YAML per format | Body is `ConfigData` JSON |
+| `GET /api/generate?url=<url>&format=...` | No | JSON or YAML per format | Fetch `ConfigData` from URL |
+| `GET /api/configs/{id}/generate?format=...` | Yes | JSON or YAML per format | Load `ConfigData` from DB by ID |
+
+**Target resolution**: If `?format=` omitted, defaults to `"sing-box"` if present in
+`config_template`, else the only key if exactly one, else `"sing-box"`.
+
+**Response headers**: `X-Dropped-Proxies: <N>` if proxies were dropped during format
+conversion (e.g., unsupported protocol).
 
 Generate flow (shared):
-1. Fetch all enabled subscription URLs concurrently (`asyncio.gather`)
-2. Load the template (from URL or inline dict)
-3. For each group (in dependency order): resolve `imports` as subscription names or other group tags, apply include/exclude rules; if auto_region, expand into region sub-groups
-4. Prepend generated outbound groups to the template's `outbounds` array
-5. Return the merged sing-box config as JSON
+1. Auto-detect subscription source format (URL suffix → content-type → sniff)
+2. Fetch all enabled subscription URLs concurrently, parse to unified `Proxy` objects
+3. Load template (from URL or inline dict) for the target format
+4. For each group (in dependency order): resolve `imports` as subscription names or group
+   tags, apply include/exclude rules; if auto_region, expand into region sub-groups
+5. Prepend generated outbound groups to the template's outbounds/proxies array
+6. Emit in target format (JSON for sing-box, YAML for Clash)
 
 ### Stateless workflow (no DB)
 
@@ -187,16 +226,19 @@ Users can run this app without a database. The recommended flow:
 1. Build config in the UI editor (Subscriptions, Groups, Template tabs)
 2. Go to the **Generate** tab → **Export Config JSON** to download `proxy-subscribe-config.json`
 3. Upload that file to GitHub Gist or S3 and copy the raw URL
-4. Paste the URL in the **Stateless Generate URL** section → copy the resulting `?url=` link
-5. Use that link as a remote profile in sing-box — no account or server state needed
+4. Paste the URL in the **Stateless Generate URL** section → copy the resulting `?url=&format=` link
+5. Use that link as a remote profile in sing-box or Clash — no account or server state needed
 
 ### Development notes
 
 - Two processes required for local dev: `uvicorn` (port 8000) + `vite` (port 5173)
-- `DATABASE_URL` is optional — omit it entirely to run without a database. CRUD endpoints return 503; generate endpoints work normally.
-- When `DATABASE_URL` is set, it must use `+asyncpg` driver. Alembic's `env.py` automatically swaps to `+psycopg` for sync migration runs.
-- `vite-plugin-monaco-editor` is a CJS package — `vite.config.ts` uses a `.default ??` fallback for ESM interop.
-- Vercel Hobby plan caps function execution at 10s — Pro plan needed for slow subscription fetches (`maxDuration: 60` is set in `vercel.json`)
+- `DATABASE_URL` is optional — omit it entirely to run without a database. CRUD endpoints return 503;
+  generate endpoints work normally.
+- When `DATABASE_URL` is set, it must use `+asyncpg` driver. Alembic's `env.py` automatically
+  swaps to `+psycopg` for sync migration runs.
+- `vite-plugin-monaco-editor-esm` (ESM fork) — pure ESM, no CJS interop fallback needed.
+- Vercel Hobby plan caps function execution at 10s — Pro plan needed for slow subscription fetches
+  (`maxDuration: 60` is set in `vercel.json`)
 
 ## Rules
 
