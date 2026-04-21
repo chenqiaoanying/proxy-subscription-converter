@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import YAML from 'yaml'
 import MonacoEditor from './MonacoEditor.vue'
 import * as monaco from 'monaco-editor'
@@ -15,19 +15,15 @@ const model = defineModel<ConfigTemplateMap>({ required: true })
 
 type TemplateMode = 'url' | 'object' | 'inline'
 
-const activeFormat = ref<TargetFormat>(
-  (Object.keys(model.value)[0] as TargetFormat | undefined) ?? 'sing-box',
-)
-
-const current = computed<TemplateSource | null | undefined>(
-  () => model.value[activeFormat.value],
-)
-
-const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' : 'json'))
-
-function initialMode(v: TemplateSource | null | undefined): TemplateMode {
-  if (v && typeof v === 'object' && 'type' in v) return v.type
-  return 'url'
+interface FormatState {
+  mode: TemplateMode
+  urlBuffer: string
+  // Shared body buffer between 'object' and 'inline' modes. The only
+  // difference between those modes is what commitActive does with this
+  // text: 'object' parses it into a dict before saving; 'inline' stores
+  // it verbatim.
+  bodyBuffer: string
+  bodyError: string
 }
 
 function stringify(obj: Record<string, unknown>, fmt: TargetFormat): string {
@@ -49,68 +45,118 @@ function parseObjectText(text: string, fmt: TargetFormat): Record<string, unknow
   return parsed as Record<string, unknown>
 }
 
-const mode = ref<TemplateMode>(initialMode(current.value))
-
-const urlBuffer = ref(
-  current.value && current.value.type === 'url' ? current.value.value : '',
-)
-const objectBuffer = ref(
-  current.value && current.value.type === 'object'
-    ? stringify(current.value.value, activeFormat.value)
-    : activeFormat.value === 'clash' ? '' : '{}',
-)
-const inlineBuffer = ref(
-  current.value && current.value.type === 'inline' ? current.value.value : '',
-)
-const objectError = ref('')
-
-let syncing = false
-
-function applyExternalValue(
+function stateFromValue(
   v: TemplateSource | null | undefined,
   fmt: TargetFormat,
-): void {
-  syncing = true
-  try {
-    mode.value = initialMode(v)
-    urlBuffer.value = v && v.type === 'url' ? v.value : ''
-    objectBuffer.value = v && v.type === 'object'
-      ? stringify(v.value, fmt)
-      : fmt === 'clash' ? '' : '{}'
-    inlineBuffer.value = v && v.type === 'inline' ? v.value : ''
-    objectError.value = ''
-  } finally {
-    syncing = false
+): FormatState {
+  let bodyBuffer = ''
+  if (v && v.type === 'object') bodyBuffer = stringify(v.value, fmt)
+  else if (v && v.type === 'inline') bodyBuffer = v.value
+  return {
+    mode: v ? v.type : 'url',
+    urlBuffer: v && v.type === 'url' ? v.value : '',
+    bodyBuffer,
+    bodyError: '',
   }
 }
 
-function setTemplate(fmt: TargetFormat, value: TemplateSource | null): void {
-  syncing = true
-  try {
-    const next: ConfigTemplateMap = { ...model.value }
-    if (
-      value === null
-      || (value.type === 'url' && value.value === '')
-      || (value.type === 'inline' && value.value === '')
-    ) {
-      delete next[fmt]
-    } else {
-      next[fmt] = value
+// Per-format local state. Three buffers + current mode are kept
+// independent per format so switching `activeFormat` or mode never
+// loses drafts. Only the ACTIVE MODE's buffer is committed to the
+// model.
+const states = reactive(new Map<TargetFormat, FormatState>())
+
+function ensureState(fmt: TargetFormat): FormatState {
+  let s = states.get(fmt)
+  if (!s) {
+    s = stateFromValue(model.value[fmt], fmt)
+    states.set(fmt, s)
+  }
+  return s
+}
+
+// Seed from whatever's in the model at construction time.
+for (const fmt of TARGET_FORMATS) ensureState(fmt)
+
+const activeFormat = ref<TargetFormat>(
+  (Object.keys(model.value)[0] as TargetFormat | undefined) ?? 'sing-box',
+)
+
+const state = computed<FormatState>(() => ensureState(activeFormat.value))
+const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' : 'json'))
+
+// When an external model change arrives for a format whose local state
+// is still in-sync with the previous model value (i.e. no unsaved user
+// edits we'd clobber), re-seed that format's state. This covers the
+// async config-by-id load in ConfigEditorPage.
+const lastCommitted = new Map<TargetFormat, TemplateSource | null | undefined>()
+for (const fmt of TARGET_FORMATS) lastCommitted.set(fmt, model.value[fmt])
+
+watch(model, (m) => {
+  for (const fmt of TARGET_FORMATS) {
+    const incoming = m[fmt]
+    const prev = lastCommitted.get(fmt)
+    if (incoming !== prev) {
+      states.set(fmt, stateFromValue(incoming, fmt))
+      lastCommitted.set(fmt, incoming)
     }
-    model.value = next
-  } finally {
-    syncing = false
+  }
+}, { deep: true })
+
+function writeModel(fmt: TargetFormat, value: TemplateSource | null): void {
+  const next: ConfigTemplateMap = { ...model.value }
+  if (value === null) {
+    delete next[fmt]
+  } else {
+    next[fmt] = value
+  }
+  lastCommitted.set(fmt, next[fmt])
+  model.value = next
+}
+
+function commitActive(): void {
+  const fmt = activeFormat.value
+  const s = state.value
+  if (s.mode === 'url') {
+    writeModel(fmt, s.urlBuffer ? { type: 'url', value: s.urlBuffer } : null)
+    s.bodyError = ''
+    return
+  }
+  if (s.mode === 'inline') {
+    writeModel(fmt, s.bodyBuffer ? { type: 'inline', value: s.bodyBuffer } : null)
+    s.bodyError = ''
+    return
+  }
+  // mode === 'object': parse the shared body buffer into a dict before saving.
+  if (!s.bodyBuffer.trim()) {
+    writeModel(fmt, null)
+    s.bodyError = ''
+    return
+  }
+  try {
+    const parsed = parseObjectText(s.bodyBuffer, fmt)
+    writeModel(fmt, { type: 'object', value: parsed })
+    s.bodyError = ''
+  } catch (e) {
+    s.bodyError = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
+    // Don't touch the model — keep previously-committed value until syntax is fixed.
   }
 }
 
-watch(activeFormat, (fmt) => {
-  applyExternalValue(model.value[fmt], fmt)
-})
+function onModeChange(m: TemplateMode): void {
+  state.value.mode = m
+  commitActive()
+}
 
-watch(current, (v) => {
-  if (syncing) return
-  applyExternalValue(v, activeFormat.value)
-})
+function onUrlInput(v: string): void {
+  state.value.urlBuffer = v
+  commitActive()
+}
+
+function onBodyChange(v: string): void {
+  state.value.bodyBuffer = v
+  commitActive()
+}
 
 function onEditorMount(): void {
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
@@ -125,49 +171,6 @@ function onEditorMount(): void {
     ],
   })
 }
-
-function commitCurrentMode(): void {
-  const fmt = activeFormat.value
-  if (mode.value === 'url') {
-    setTemplate(fmt, urlBuffer.value ? { type: 'url', value: urlBuffer.value } : null)
-  } else if (mode.value === 'inline') {
-    setTemplate(fmt, inlineBuffer.value ? { type: 'inline', value: inlineBuffer.value } : null)
-  } else {
-    try {
-      const parsed = parseObjectText(objectBuffer.value, fmt)
-      setTemplate(fmt, { type: 'object', value: parsed })
-      objectError.value = ''
-    } catch (e) {
-      objectError.value = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
-    }
-  }
-}
-
-function onModeChange(m: TemplateMode): void {
-  mode.value = m
-  commitCurrentMode()
-}
-
-function onUrlInput(v: string): void {
-  urlBuffer.value = v
-  setTemplate(activeFormat.value, v ? { type: 'url', value: v } : null)
-}
-
-function onObjectChange(v: string): void {
-  objectBuffer.value = v
-  try {
-    const parsed = parseObjectText(v, activeFormat.value)
-    setTemplate(activeFormat.value, { type: 'object', value: parsed })
-    objectError.value = ''
-  } catch (e) {
-    objectError.value = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
-  }
-}
-
-function onInlineChange(v: string): void {
-  inlineBuffer.value = v
-  setTemplate(activeFormat.value, v ? { type: 'inline', value: v } : null)
-}
 </script>
 
 <template>
@@ -178,55 +181,39 @@ function onInlineChange(v: string): void {
           {{ fmt }}
         </el-radio-button>
       </el-radio-group>
-      <el-radio-group :model-value="mode" @change="onModeChange">
+      <el-radio-group :model-value="state.mode" @change="onModeChange">
         <el-radio-button value="url">URL</el-radio-button>
         <el-radio-button value="object">Inline object</el-radio-button>
         <el-radio-button value="inline">Inline text</el-radio-button>
       </el-radio-group>
     </div>
 
-    <template v-if="mode === 'url'">
-      <el-input
-        :model-value="urlBuffer"
-        :placeholder="activeFormat === 'clash'
-          ? 'https://example.com/clash-template.yaml'
-          : 'https://example.com/sing-box-template.json'"
-        @input="onUrlInput"
-      />
+    <template v-if="state.mode === 'url'">
+      <el-input :model-value="state.urlBuffer" :placeholder="activeFormat === 'clash'
+        ? 'https://example.com/clash-template.yaml'
+        : 'https://example.com/sing-box-template.json'" @input="onUrlInput" />
       <el-text type="info" size="small">
         The {{ activeFormat }} template will be fetched from this URL each time the
         generate endpoint is called with <code>?format={{ activeFormat }}</code>.
       </el-text>
     </template>
 
-    <template v-else-if="mode === 'object'">
-      <el-alert v-if="objectError" :title="objectError" type="error" :closable="false" />
-      <el-text type="info" size="small">
-        Parsed as a {{ editorLanguage.toUpperCase() }} object and stored as structured data
-        (normalised on save — comments and key ordering are not preserved).
-      </el-text>
-      <MonacoEditor
-        :model-value="objectBuffer"
-        :language="editorLanguage"
-        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
-        @update:model-value="onObjectChange"
-        @mount="onEditorMount"
-      />
-    </template>
-
     <template v-else>
+      <el-alert v-if="state.bodyError" :title="state.bodyError" type="error" :closable="false" />
       <el-text type="info" size="small">
-        Stored verbatim as raw text — preserves comments and formatting. The backend parses
-        the text with YAML (which also accepts JSON). Use this for templates in any format
-        where byte-for-byte fidelity matters.
+        <template v-if="state.mode === 'object'">
+          Parsed as a {{ editorLanguage.toUpperCase() }} object and stored as structured data
+          (normalised on save — comments and key ordering are not preserved).
+        </template>
+        <template v-else>
+          Stored verbatim as raw text — preserves comments and formatting. The backend parses
+          the text with YAML (which also accepts JSON). Use this for templates in any format
+          where byte-for-byte fidelity matters.
+        </template>
       </el-text>
-      <MonacoEditor
-        :model-value="inlineBuffer"
-        :language="editorLanguage"
-        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
-        @update:model-value="onInlineChange"
-        @mount="onEditorMount"
-      />
+      <MonacoEditor :model-value="state.bodyBuffer" :language="editorLanguage"
+        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px" @update:model-value="onBodyChange"
+        @mount="onEditorMount" />
     </template>
   </div>
 </template>
