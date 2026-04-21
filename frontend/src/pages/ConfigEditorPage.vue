@@ -180,10 +180,10 @@ function handleExportConfigYaml() {
   dirty.value = false
 }
 
-function handleImportConfig(format: 'json' | 'yaml') {
+function handleImportConfig() {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = format === 'yaml' ? '.yaml,.yml' : '.json,application/json'
+  input.accept = '.json,.yaml,.yml,application/json'
   input.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
@@ -191,7 +191,7 @@ function handleImportConfig(format: 'json' | 'yaml') {
     reader.onload = (ev) => {
       try {
         const text = ev.target?.result as string
-        const raw = format === 'yaml' ? YAML.parse(text) : JSON.parse(text)
+        const raw = YAML.parse(text)
         const parsed = ConfigDataSchema.parse(raw)
         skipDirtyWatch = true
         configData.value = parsed
@@ -205,14 +205,6 @@ function handleImportConfig(format: 'json' | 'yaml') {
     reader.readAsText(file)
   }
   input.click()
-}
-
-function handleImportConfigJson() {
-  handleImportConfig('json')
-}
-
-function handleImportConfigYaml() {
-  handleImportConfig('yaml')
 }
 
 function copyToClipboard(text: string) {
@@ -230,19 +222,10 @@ function copyToClipboard(text: string) {
         Back
       </el-button>
       <el-input v-model="configName" style="max-width: 320px" placeholder="Config name" />
-      <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleImportConfigJson() : handleImportConfigYaml()">
-        <el-button>
-          <el-icon><Upload /></el-icon>
-          Import
-          <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="json">Import JSON</el-dropdown-item>
-            <el-dropdown-item command="yaml">Import YAML</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <el-button @click="handleImportConfig">
+        <el-icon><Upload /></el-icon>
+        Import
+      </el-button>
       <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleExportConfigJson() : handleExportConfigYaml()">
         <el-button>
           <el-icon><Download /></el-icon>

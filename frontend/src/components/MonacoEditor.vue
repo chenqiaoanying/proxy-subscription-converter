@@ -13,7 +13,7 @@ import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 
 interface Props {
   modelValue: string
-  language?: 'json'
+  language?: 'json' | 'yaml'
   theme?: string
   width?: string
   height?: string
