@@ -37,10 +37,17 @@ filtering, grouping, and region detection.
 
 ### Multi-Format Config Structure
 
-User-facing `ConfigData` stores templates per target format:
+User-facing `ConfigData` stores templates per target format as a tagged discriminated union:
 ```python
-config_template: dict[Literal["sing-box", "clash"], str | dict | None]
+config_template: dict[Literal["sing-box", "clash"], TemplateSource | None]
 ```
+
+where `TemplateSource = UrlTemplate | ObjectTemplate | InlineTemplate` (discriminated by `type` field).
+
+Each template variant:
+- **UrlTemplate** (`type: "url"`) — URL to a template file (fetched at generate time)
+- **ObjectTemplate** (`type: "object"`) — Inline object (parsed and embedded directly)
+- **InlineTemplate** (`type: "inline"`) — Raw YAML/JSON text (backend parses via YAML)
 
 When generating, the app picks the right template, emits in the target format (JSON for
 sing-box, YAML for Clash), and records any dropped proxies in the `X-Dropped-Proxies`
@@ -53,11 +60,15 @@ Subscription sources are auto-detected via:
 2. `Content-Type` header
 3. Content sniffing (regex on opening bytes)
 
-### Config Template Versioning
+### Config Template Schema Versioning
 
-Legacy configs with a bare `config_template: "url" | {...}` are auto-wrapped into
-`{"sing-box": value}` for backward compatibility. This happens in the Pydantic validator
-`ConfigData._wrap_legacy_template`.
+Legacy configs with bare `config_template: "url" | {...}` are auto-migrated on load:
+- `config_template: "url"` → `{type: "url", value: "url"}`
+- `config_template: {...}` (no `type` field) → `{type: "object", value: {...}}`
+- Tagged forms pass through unchanged
+
+This happens via Pydantic `@model_validator(mode="before")` on backend and Zod
+`z.preprocess` on frontend. Configs are persisted in the new tagged format after save.
 
 ## Data Flow: Generate Request
 

@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import AliasChoices
 
 
@@ -65,11 +65,55 @@ class SubscriberConfig(BaseModel):
 TargetFormat = Literal["sing-box", "clash"]
 
 
+class UrlTemplate(BaseModel):
+    type: Literal["url"] = "url"
+    value: str = ""
+
+
+class ObjectTemplate(BaseModel):
+    type: Literal["object"] = "object"
+    value: dict[str, Any] = Field(default_factory=dict)
+
+
+class InlineTemplate(BaseModel):
+    type: Literal["inline"] = "inline"
+    value: str = ""
+
+
+TemplateSource = Annotated[
+    Union[UrlTemplate, ObjectTemplate, InlineTemplate],
+    Field(discriminator="type"),
+]
+
+
 class ConfigData(BaseModel):
     subscriber: SubscriberConfig = SubscriberConfig()
-    config_template: dict[TargetFormat, str | dict[str, Any] | None] = Field(
+    config_template: dict[TargetFormat, TemplateSource | None] = Field(
         default_factory=dict
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy_template(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        tpl = data.get("config_template")
+        if not isinstance(tpl, dict):
+            return data
+        migrated: dict[str, Any] = {}
+        for fmt, val in tpl.items():
+            if val is None:
+                migrated[fmt] = None
+            elif isinstance(val, dict) and "type" in val and val.get("type") in ("url", "object", "inline"):
+                migrated[fmt] = val
+            elif isinstance(val, dict):
+                migrated[fmt] = {"type": "object", "value": val}
+            elif isinstance(val, str):
+                migrated[fmt] = {"type": "url", "value": val}
+            else:
+                migrated[fmt] = None
+        data["config_template"] = migrated
+        return data
 
 
 class ConfigCreate(BaseModel):

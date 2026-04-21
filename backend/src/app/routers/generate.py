@@ -28,13 +28,17 @@ from src.app.schemas import (
     AutoRegionGroupConfig,
     ConfigData,
     GroupConfig,
+    InlineTemplate,
     MatchRule,
+    ObjectTemplate,
     ProxyPreview,
     SubscriptionConfig,
     SubscriptionPreviewRequest,
     SubscriptionPreviewResponse,
     SubscriptionUserInfo,
     TargetFormat,
+    TemplateSource,
+    UrlTemplate,
     UrlTestOptions,
 )
 
@@ -287,24 +291,39 @@ def _is_yaml_response(url: str, content_type: str) -> bool:
 
 
 async def _load_template(
-    template_src: str | dict[str, Any] | None,
+    template_src: TemplateSource | None,
 ) -> dict[str, Any]:
-    if isinstance(template_src, str):
+    if template_src is None:
+        return {}
+    if isinstance(template_src, ObjectTemplate):
+        return deepcopy(template_src.value)
+    if isinstance(template_src, InlineTemplate):
+        text = template_src.value.strip()
+        if not text:
+            return {}
+        try:
+            data = yaml.safe_load(text)
+        except yaml.YAMLError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid inline template: {e}",
+            ) from e
+        return data if isinstance(data, dict) else {}
+    if isinstance(template_src, UrlTemplate):
+        url = template_src.value
+        if not url:
+            return {}
         async with httpx.AsyncClient() as client:
-            resp = await client.get(template_src, timeout=30.0)
+            resp = await client.get(url, timeout=30.0)
             resp.raise_for_status()
-        if _is_yaml_response(template_src, resp.headers.get("content-type", "")):
+        if _is_yaml_response(url, resp.headers.get("content-type", "")):
             data = yaml.safe_load(resp.text)
         else:
             try:
                 data = json.loads(resp.text)
             except json.JSONDecodeError:
                 data = yaml.safe_load(resp.text)
-        if not isinstance(data, dict):
-            return {}
-        return data
-    if isinstance(template_src, dict):
-        return deepcopy(template_src)
+        return data if isinstance(data, dict) else {}
     return {}
 
 

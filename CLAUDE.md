@@ -98,7 +98,7 @@ frontend/
     components/
       SubscriptionsPanel.vue  Manage subscriber.subscriptions dict
       GroupsPanel.vue         Manage subscriber.groups array (static or auto_region groups)
-      TemplatePanel.vue       URL or inline JSON template (Monaco Editor)
+      TemplatePanel.vue       Three-mode template editor (URL, inline object, inline text)
       MonacoEditor.vue        Monaco editor with sing-box JSON schema validation
     schemas/sing-box.schema.json  JSON schema for template editor validation
 ```
@@ -107,55 +107,69 @@ frontend/
 
 Each config follows this shape (see `example.json`):
 
-```json
-{
-  "subscriber": {
-    "subscriptions": {
-      "sub_name": {
-        "url": "https://...",
-        "enabled": true,
-        "user_agent": "clashmeta"
-      }
-    },
-    "groups": [
-      {
-        "tag": "HK Nodes",
-        "type": "selector",
-        "include": {
-          "pattern": "HK",
-          "proxy_type": ["vmess"],
-          "regex": false,
-          "match_case": false,
-          "match_whole_word": false
-        },
-        "exclude": null,
-        "imports": ["sub_name"]
-      },
-      {
-        "group_tag": "My Proxies",
-        "type": "auto_region",
-        "group_type": "selector",
-        "sub_group_tag": "{region} Nodes",
-        "sub_group_type": "urltest",
-        "imports": ["sub_name"],
-        "regions": "auto",
-        "others_tag": "Others",
-        "region_map": {},
-        "use_emoji": true,
-        "include": null,
-        "exclude": null
-      }
-    ]
-  },
-  "config_template": {
-    "sing-box": "https://... or inline JSON object or null",
-    "clash": "https://... or inline YAML/JSON object or null"
-  }
-}
+```yaml
+subscriber:
+  subscriptions:
+    sub_name:
+      url: https://...
+      enabled: true
+      user_agent: clashmeta
+  groups:
+    - tag: HK Nodes
+      type: selector
+      include:
+        pattern: HK
+        proxy_type: [vmess]
+        regex: false
+        match_case: false
+        match_whole_word: false
+      exclude: null
+      imports: [sub_name]
+    - group_tag: My Proxies
+      type: auto_region
+      group_type: selector
+      sub_group_tag: "{region} Nodes"
+      sub_group_type: urltest
+      imports: [sub_name]
+      regions: auto
+      others_tag: Others
+      region_map: {}
+      use_emoji: true
+      include: null
+      exclude: null
+
+config_template:
+  # URL template — fetched at generate time
+  sing-box:
+    type: url
+    value: https://example.com/sing-box-template.json
+  
+  # Inline object template — parsed and used directly
+  clash:
+    type: object
+    value:
+      log:
+        level: info
+      proxies: []
+  
+  # Inline text template — raw YAML/JSON, preserves formatting
+  # some-format:
+  #   type: inline
+  #   value: |
+  #     proxies: []
+  #     proxy-groups: []
 ```
 
-**Legacy format**: `config_template` as a bare string or inline object is auto-wrapped into
-`{"sing-box": value}` for backward compatibility. Existing configs work without modification.
+**Template variants**: Each target format (`sing-box`, `clash`) can use:
+- `type: "url"` — URL to a template file (fetched at generate time)
+- `type: "object"` — Inline object (parsed and embedded)
+- `type: "inline"` — Raw text (YAML or JSON, preserves comments/formatting, backend parses as YAML)
+- Omit the key or set to `null` for no template (generates only proxy groups)
+
+**Legacy format**: `config_template` with bare strings or inline objects (pre-v2) are auto-upgraded
+on load via Pydantic `@model_validator(mode="before")` (backend) and Zod `z.preprocess`
+(frontend) to the tagged form. Saving re-serializes in the new tagged format. Existing configs
+work without modification.
 
 **Group types:**
 
@@ -224,7 +238,7 @@ Generate flow (shared):
 
 Users can run this app without a database. The recommended flow:
 1. Build config in the UI editor (Subscriptions, Groups, Template tabs)
-2. Go to the **Generate** tab → **Export Config JSON** to download `proxy-subscribe-config.json`
+2. Go to the **Generate** tab → **Export Config** to download `proxy-subscribe-config.yaml`
 3. Upload that file to GitHub Gist or S3 and copy the raw URL
 4. Paste the URL in the **Stateless Generate URL** section → copy the resulting `?url=&format=` link
 5. Use that link as a remote profile in sing-box or Clash — no account or server state needed

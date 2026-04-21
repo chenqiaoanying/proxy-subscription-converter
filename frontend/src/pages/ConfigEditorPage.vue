@@ -70,16 +70,6 @@ watch(
   { deep: true }
 )
 
-function downloadJson(data: object, filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 function downloadText(text: string, filename: string, mediaType: string) {
   const blob = new Blob([text], { type: mediaType || 'text/plain' })
   const url = URL.createObjectURL(blob)
@@ -163,20 +153,12 @@ async function handlePreview() {
   }
 }
 
-function handleExportConfigJson() {
-  downloadJson(configData.value, 'proxy-subscribe-config.json')
-  dirty.value = false
-}
-
-function handleExportConfigYaml() {
-  const text = YAML.stringify(configData.value)
-  const blob = new Blob([text], { type: 'application/yaml' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'proxy-subscribe-config.yaml'
-  a.click()
-  URL.revokeObjectURL(url)
+function handleExportConfig() {
+  downloadText(
+    YAML.stringify(configData.value),
+    'proxy-subscribe-config.yaml',
+    'application/yaml',
+  )
   dirty.value = false
 }
 
@@ -226,19 +208,10 @@ function copyToClipboard(text: string) {
         <el-icon><Upload /></el-icon>
         Import
       </el-button>
-      <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleExportConfigJson() : handleExportConfigYaml()">
-        <el-button>
-          <el-icon><Download /></el-icon>
-          Export
-          <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="json">Export JSON</el-dropdown-item>
-            <el-dropdown-item command="yaml">Export YAML</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <el-button @click="handleExportConfig">
+        <el-icon><Download /></el-icon>
+        Export
+      </el-button>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
         Save
@@ -318,7 +291,7 @@ function copyToClipboard(text: string) {
             </el-text>
 
             <el-steps :active="configUrl ? 2 : 0" finish-status="success" style="margin: 20px 0">
-              <el-step title="Export config JSON" />
+              <el-step title="Export config" />
               <el-step title="Upload &amp; paste URL" />
               <el-step title="Share generate URL" />
             </el-steps>
@@ -328,19 +301,10 @@ function copyToClipboard(text: string) {
               <div>
                 <el-text tag="b" size="small">Step 1 — Export your config</el-text>
                 <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px">
-                  <el-dropdown @command="(cmd: string) => cmd === 'json' ? handleExportConfigJson() : handleExportConfigYaml()">
-                    <el-button>
-                      <el-icon><Download /></el-icon>
-                      Export Config
-                      <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="json">Export JSON</el-dropdown-item>
-                        <el-dropdown-item command="yaml">Export YAML</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
+                  <el-button @click="handleExportConfig">
+                    <el-icon><Download /></el-icon>
+                    Export Config
+                  </el-button>
                   <el-text type="info" size="small">
                     Upload this file to a GitHub Gist or S3 bucket and copy the raw URL.
                   </el-text>
@@ -355,7 +319,7 @@ function copyToClipboard(text: string) {
                 <el-input
                   v-model="configUrl"
                   style="margin-top: 10px"
-                  placeholder="https://gist.githubusercontent.com/user/abc123/raw/config.json"
+                  placeholder="https://gist.githubusercontent.com/user/abc123/raw/config.yaml"
                   clearable
                 />
               </div>

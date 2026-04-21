@@ -30,7 +30,7 @@ export const StaticGroupConfigSchema = z.preprocess(
     include: MatchRuleSchema.nullable().optional(),
     exclude: MatchRuleSchema.nullable().optional(),
     imports: z.array(z.string()).default([]),
-    urltest_options: UrlTestOptionsSchema.optional(),
+    urltest_options: UrlTestOptionsSchema.nullable().optional(),
   })
 )
 
@@ -51,8 +51,8 @@ export const AutoRegionGroupConfigSchema = z.preprocess(
     use_emoji: z.boolean().default(false),
     include: MatchRuleSchema.nullable().optional(),
     exclude: MatchRuleSchema.nullable().optional(),
-    group_urltest_options: UrlTestOptionsSchema.optional(),
-    sub_group_urltest_options: UrlTestOptionsSchema.optional(),
+    group_urltest_options: UrlTestOptionsSchema.nullable().optional(),
+    sub_group_urltest_options: UrlTestOptionsSchema.nullable().optional(),
   })
 )
 
@@ -73,13 +73,42 @@ export const TARGET_FORMATS = ['sing-box', 'clash'] as const
 export const TargetFormatSchema = z.enum(TARGET_FORMATS)
 export type TargetFormat = z.infer<typeof TargetFormatSchema>
 
-export const ConfigTemplateValueSchema = z
-  .union([z.string(), z.record(z.unknown())])
-  .nullable()
+export const UrlTemplateSchema = z.object({
+  type: z.literal('url'),
+  value: z.string().default(''),
+})
+
+export const ObjectTemplateSchema = z.object({
+  type: z.literal('object'),
+  value: z.record(z.unknown()).default({}),
+})
+
+export const InlineTemplateSchema = z.object({
+  type: z.literal('inline'),
+  value: z.string().default(''),
+})
+
+export const TemplateSourceSchema = z.preprocess((v) => {
+  if (v == null) return v
+  if (typeof v === 'object' && !Array.isArray(v) && 'type' in (v as object)) {
+    return v
+  }
+  if (typeof v === 'string') return { type: 'url', value: v }
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    return { type: 'object', value: v }
+  }
+  return v
+}, z.discriminatedUnion('type', [
+  UrlTemplateSchema,
+  ObjectTemplateSchema,
+  InlineTemplateSchema,
+]).nullable())
+
+export const ConfigTemplateValueSchema = TemplateSourceSchema
 
 export const ConfigTemplateMapSchema = z.record(
   TargetFormatSchema,
-  ConfigTemplateValueSchema,
+  TemplateSourceSchema,
 )
 
 export const ConfigDataSchema = z.object({
@@ -117,7 +146,11 @@ export type AutoRegionGroupConfig = z.infer<typeof AutoRegionGroupConfigSchema>
 export type GroupConfig = z.infer<typeof GroupConfigSchema>
 export type SubscriptionConfig = z.infer<typeof SubscriptionConfigSchema>
 export type SubscriberConfig = z.infer<typeof SubscriberConfigSchema>
-export type ConfigTemplateValue = z.infer<typeof ConfigTemplateValueSchema>
+export type UrlTemplate = z.infer<typeof UrlTemplateSchema>
+export type ObjectTemplate = z.infer<typeof ObjectTemplateSchema>
+export type InlineTemplate = z.infer<typeof InlineTemplateSchema>
+export type TemplateSource = z.infer<typeof TemplateSourceSchema>
+export type ConfigTemplateValue = TemplateSource
 export type ConfigTemplateMap = z.infer<typeof ConfigTemplateMapSchema>
 export type ConfigData = z.infer<typeof ConfigDataSchema>
 export type ConfigListItem = z.infer<typeof ConfigListItemSchema>

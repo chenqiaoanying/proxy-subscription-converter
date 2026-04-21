@@ -7,37 +7,34 @@ import singboxSchema from '@/schemas/sing-box.schema.json'
 import {
   TARGET_FORMATS,
   type ConfigTemplateMap,
-  type ConfigTemplateValue,
   type TargetFormat,
+  type TemplateSource,
 } from '@/types'
 
 const model = defineModel<ConfigTemplateMap>({ required: true })
 
-type TemplateMode = 'url' | 'inline'
+type TemplateMode = 'url' | 'object' | 'inline'
 
 const activeFormat = ref<TargetFormat>(
   (Object.keys(model.value)[0] as TargetFormat | undefined) ?? 'sing-box',
 )
 
-const current = computed<ConfigTemplateValue | undefined>(
+const current = computed<TemplateSource | null | undefined>(
   () => model.value[activeFormat.value],
 )
 
 const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' : 'json'))
 
-const mode = ref<TemplateMode>(typeof current.value === 'string' ? 'url' : 'inline')
-const urlValue = ref(typeof current.value === 'string' ? current.value : '')
-const inlineValue = ref(serialiseInline(current.value, activeFormat.value))
-const inlineError = ref('')
-
-function serialiseInline(v: ConfigTemplateValue | undefined, fmt: TargetFormat): string {
-  if (v && typeof v === 'object') {
-    return fmt === 'clash' ? YAML.stringify(v) : JSON.stringify(v, null, 2)
-  }
-  return fmt === 'clash' ? '' : '{}'
+function initialMode(v: TemplateSource | null | undefined): TemplateMode {
+  if (v && typeof v === 'object' && 'type' in v) return v.type
+  return 'url'
 }
 
-function parseInline(text: string, fmt: TargetFormat): Record<string, unknown> {
+function stringify(obj: Record<string, unknown>, fmt: TargetFormat): string {
+  return fmt === 'clash' ? YAML.stringify(obj) : JSON.stringify(obj, null, 2)
+}
+
+function parseObjectText(text: string, fmt: TargetFormat): Record<string, unknown> {
   if (fmt === 'clash') {
     const parsed = YAML.parse(text)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -52,25 +49,70 @@ function parseInline(text: string, fmt: TargetFormat): Record<string, unknown> {
   return parsed as Record<string, unknown>
 }
 
-function setTemplate(fmt: TargetFormat, value: ConfigTemplateValue | undefined): void {
-  const next: ConfigTemplateMap = { ...model.value }
-  if (value === undefined || (typeof value === 'string' && value === '')) {
-    delete next[fmt]
-  } else {
-    next[fmt] = value
+const mode = ref<TemplateMode>(initialMode(current.value))
+
+const urlBuffer = ref(
+  current.value && current.value.type === 'url' ? current.value.value : '',
+)
+const objectBuffer = ref(
+  current.value && current.value.type === 'object'
+    ? stringify(current.value.value, activeFormat.value)
+    : activeFormat.value === 'clash' ? '' : '{}',
+)
+const inlineBuffer = ref(
+  current.value && current.value.type === 'inline' ? current.value.value : '',
+)
+const objectError = ref('')
+
+let syncing = false
+
+function applyExternalValue(
+  v: TemplateSource | null | undefined,
+  fmt: TargetFormat,
+): void {
+  syncing = true
+  try {
+    mode.value = initialMode(v)
+    urlBuffer.value = v && v.type === 'url' ? v.value : ''
+    objectBuffer.value = v && v.type === 'object'
+      ? stringify(v.value, fmt)
+      : fmt === 'clash' ? '' : '{}'
+    inlineBuffer.value = v && v.type === 'inline' ? v.value : ''
+    objectError.value = ''
+  } finally {
+    syncing = false
   }
-  model.value = next
+}
+
+function setTemplate(fmt: TargetFormat, value: TemplateSource | null): void {
+  syncing = true
+  try {
+    const next: ConfigTemplateMap = { ...model.value }
+    if (
+      value === null
+      || (value.type === 'url' && value.value === '')
+      || (value.type === 'inline' && value.value === '')
+    ) {
+      delete next[fmt]
+    } else {
+      next[fmt] = value
+    }
+    model.value = next
+  } finally {
+    syncing = false
+  }
 }
 
 watch(activeFormat, (fmt) => {
-  const v = model.value[fmt]
-  mode.value = typeof v === 'string' ? 'url' : 'inline'
-  urlValue.value = typeof v === 'string' ? v : ''
-  inlineValue.value = serialiseInline(v, fmt)
-  inlineError.value = ''
+  applyExternalValue(model.value[fmt], fmt)
 })
 
-function onEditorMount() {
+watch(current, (v) => {
+  if (syncing) return
+  applyExternalValue(v, activeFormat.value)
+})
+
+function onEditorMount(): void {
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: true,
@@ -84,33 +126,47 @@ function onEditorMount() {
   })
 }
 
-function onModeChange(m: TemplateMode) {
-  mode.value = m
-  if (m === 'url') {
-    setTemplate(activeFormat.value, urlValue.value || null)
+function commitCurrentMode(): void {
+  const fmt = activeFormat.value
+  if (mode.value === 'url') {
+    setTemplate(fmt, urlBuffer.value ? { type: 'url', value: urlBuffer.value } : null)
+  } else if (mode.value === 'inline') {
+    setTemplate(fmt, inlineBuffer.value ? { type: 'inline', value: inlineBuffer.value } : null)
   } else {
     try {
-      setTemplate(activeFormat.value, parseInline(inlineValue.value, activeFormat.value))
-      inlineError.value = ''
-    } catch {
-      setTemplate(activeFormat.value, null)
+      const parsed = parseObjectText(objectBuffer.value, fmt)
+      setTemplate(fmt, { type: 'object', value: parsed })
+      objectError.value = ''
+    } catch (e) {
+      objectError.value = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
     }
   }
 }
 
-function onUrlInput(v: string) {
-  urlValue.value = v
-  setTemplate(activeFormat.value, v || null)
+function onModeChange(m: TemplateMode): void {
+  mode.value = m
+  commitCurrentMode()
 }
 
-function onInlineChange(v: string) {
-  inlineValue.value = v
+function onUrlInput(v: string): void {
+  urlBuffer.value = v
+  setTemplate(activeFormat.value, v ? { type: 'url', value: v } : null)
+}
+
+function onObjectChange(v: string): void {
+  objectBuffer.value = v
   try {
-    setTemplate(activeFormat.value, parseInline(v, activeFormat.value))
-    inlineError.value = ''
+    const parsed = parseObjectText(v, activeFormat.value)
+    setTemplate(activeFormat.value, { type: 'object', value: parsed })
+    objectError.value = ''
   } catch (e) {
-    inlineError.value = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
+    objectError.value = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
   }
+}
+
+function onInlineChange(v: string): void {
+  inlineBuffer.value = v
+  setTemplate(activeFormat.value, v ? { type: 'inline', value: v } : null)
 }
 </script>
 
@@ -124,13 +180,14 @@ function onInlineChange(v: string) {
       </el-radio-group>
       <el-radio-group :model-value="mode" @change="onModeChange">
         <el-radio-button value="url">URL</el-radio-button>
-        <el-radio-button value="inline">Inline {{ editorLanguage.toUpperCase() }}</el-radio-button>
+        <el-radio-button value="object">Inline object</el-radio-button>
+        <el-radio-button value="inline">Inline text</el-radio-button>
       </el-radio-group>
     </div>
 
     <template v-if="mode === 'url'">
       <el-input
-        :model-value="urlValue"
+        :model-value="urlBuffer"
         :placeholder="activeFormat === 'clash'
           ? 'https://example.com/clash-template.yaml'
           : 'https://example.com/sing-box-template.json'"
@@ -142,10 +199,29 @@ function onInlineChange(v: string) {
       </el-text>
     </template>
 
-    <template v-else>
-      <el-alert v-if="inlineError" :title="inlineError" type="error" :closable="false" />
+    <template v-else-if="mode === 'object'">
+      <el-alert v-if="objectError" :title="objectError" type="error" :closable="false" />
+      <el-text type="info" size="small">
+        Parsed as a {{ editorLanguage.toUpperCase() }} object and stored as structured data
+        (normalised on save — comments and key ordering are not preserved).
+      </el-text>
       <MonacoEditor
-        :model-value="inlineValue"
+        :model-value="objectBuffer"
+        :language="editorLanguage"
+        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
+        @update:model-value="onObjectChange"
+        @mount="onEditorMount"
+      />
+    </template>
+
+    <template v-else>
+      <el-text type="info" size="small">
+        Stored verbatim as raw text — preserves comments and formatting. The backend parses
+        the text with YAML (which also accepts JSON). Use this for templates in any format
+        where byte-for-byte fidelity matters.
+      </el-text>
+      <MonacoEditor
+        :model-value="inlineBuffer"
         :language="editorLanguage"
         style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
         @update:model-value="onInlineChange"

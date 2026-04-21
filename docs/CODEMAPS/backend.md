@@ -40,6 +40,7 @@ alembic/
 
 | Function | Purpose | Inputs | Output |
 |---|---|---|---|
+| `_load_template` | Dispatch on TemplateSource type: fetch URL, parse inline object/text | TemplateSource \| None | dict[str, Any] |
 | `_run_generate` | Core logic: fetch subs, apply groups, emit target | ConfigData, target_format | GenerateResult (bytes, media_type, headers) |
 | `_fetch_subscription` | Fetch a single subscription URL, auto-detect format | name, SubscriptionConfig | (name, Proxy[], userinfo_str) |
 | `_apply_filter_rules` | Apply include/exclude rules to proxies | Proxy[], include_rule, exclude_rule | Proxy[] |
@@ -104,12 +105,27 @@ alembic/
 | `SubscriptionConfig` | Single subscription: `url`, `enabled`, `user_agent` |
 | `SubscriberConfig` | All subscriptions + groups: `subscriptions{}`, `groups[]` |
 | `TargetFormat` | Type alias: `Literal["sing-box", "clash"]` |
-| `ConfigData` | Full user config: `subscriber`, `config_template{}` |
+
+**Template Models (tagged discriminated union):**
+
+| Model | Purpose |
+|---|---|
+| `UrlTemplate` | URL template: `type: "url"`, `value: str` (URL to template file) |
+| `ObjectTemplate` | Inline object: `type: "object"`, `value: dict` (embedded template) |
+| `InlineTemplate` | Inline text: `type: "inline"`, `value: str` (raw YAML/JSON) |
+| `TemplateSource` | Union: `UrlTemplate \| ObjectTemplate \| InlineTemplate` (discriminated by `type` field) |
+
+**Config Models:**
+
+| Model | Purpose |
+|---|---|
+| `ConfigData` | Full user config: `subscriber`, `config_template: dict[TargetFormat, TemplateSource \| None]` |
 
 **Legacy Support:**
-- Bare `config_template: str \| dict \| None` auto-wrapped to `{"sing-box": value}` via
-  `ConfigData._wrap_legacy_template()` Pydantic validator
-- Existing saved configs continue to work
+- Bare `config_template: str \| dict \| None` auto-upgraded via
+  `ConfigData._migrate_legacy_template()` Pydantic validator (`mode="before"`)
+- Bare strings → `UrlTemplate`, bare dicts → `ObjectTemplate`, tagged forms pass through
+- Existing saved configs continue to work; saved again in tagged form
 
 **CRUD Models:**
 

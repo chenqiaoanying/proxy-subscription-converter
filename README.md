@@ -44,13 +44,13 @@ Open [http://localhost:5173](http://localhost:5173). No `.env` file needed.
 ### Option A — Stateless (no database, recommended for self-hosting)
 
 1. Build your config in the UI editor (Subscriptions, Groups, Template tabs)
-2. Go to the **Generate** tab → click **Export Config JSON**
+2. Go to the **Generate** tab → click **Export Config**
 3. Upload the exported file to [GitHub Gist](https://gist.github.com) or S3, copy the raw URL
 4. Paste the raw URL in the **Stateless Generate URL** section — the generate link is built for you
 5. Use that URL as a remote profile in sing-box:
 
 ```
-GET https://your-app.vercel.app/api/generate?url=https://gist.githubusercontent.com/user/abc/raw/config.json&format=sing-box
+GET https://your-app.vercel.app/api/generate?url=https://gist.githubusercontent.com/user/abc/raw/config.yaml&format=sing-box
 ```
 
 Append `&format=clash` to generate a Clash config instead.
@@ -67,56 +67,56 @@ Set up the database (see below), save your config via the UI, and point sing-box
 
 ### Config document structure
 
-```json
-{
-  "subscriber": {
-    "subscriptions": {
-      "my_airport": {
-        "url": "https://example.com/subscribe?token=xxx",
-        "enabled": true,
-        "user_agent": "clashmeta"
-      }
-    },
-    "groups": [
-      {
-        "tag": "HK Nodes",
-        "type": "selector",
-        "include": {
-          "pattern": "HK|Hong Kong",
-          "proxy_type": [],
-          "regex": true,
-          "match_case": false,
-          "match_whole_word": false
-        },
-        "exclude": null,
-        "imports": ["my_airport"]
-      },
-      {
-        "group_tag": "My Proxies",
-        "type": "auto_region",
-        "group_type": "selector",
-        "sub_group_tag": "{region} Nodes",
-        "sub_group_type": "urltest",
-        "imports": ["my_airport"],
-        "regions": "auto",
-        "others_tag": "Others",
-        "region_map": {},
-        "use_emoji": true,
-        "include": null,
-        "exclude": null
-      }
-    ]
-  },
-  "config_template": {
-    "sing-box": "https://example.com/sing-box-template.json",
-    "clash": "https://example.com/clash-template.yaml"
-  }
-}
+```yaml
+subscriber:
+  subscriptions:
+    my_airport:
+      url: https://example.com/subscribe?token=xxx
+      enabled: true
+      user_agent: clashmeta
+  groups:
+    - tag: HK Nodes
+      type: selector
+      include:
+        pattern: HK|Hong Kong
+        proxy_type: []
+        regex: true
+        match_case: false
+        match_whole_word: false
+      exclude: null
+      imports: [my_airport]
+    - group_tag: My Proxies
+      type: auto_region
+      group_type: selector
+      sub_group_tag: "{region} Nodes"
+      sub_group_type: urltest
+      imports: [my_airport]
+      regions: auto
+      others_tag: Others
+      region_map: {}
+      use_emoji: true
+      include: null
+      exclude: null
+
+config_template:
+  sing-box:
+    type: url
+    value: https://example.com/sing-box-template.json
+  clash:
+    type: object
+    value:
+      log:
+        level: info
+      proxies: []
 ```
 
-`config_template` keys are target format names (`sing-box`, `clash`). Each value can be a URL
-(fetched at generate time), an inline object, or `null`. Subscriptions are auto-detected and
-converted if needed.
+`config_template` keys are target format names (`sing-box`, `clash`). Each value can be:
+- A **URL template** (`{type: "url", value: "https://..."}`) — fetched at generate time
+- An **inline object** (`{type: "object", value: {...}}`) — parsed and embedded directly
+- An **inline text** (`{type: "inline", value: "raw yaml/json text"}`) — backend parses as YAML
+- `null` — generates only proxy groups, no template base
+
+Subscriptions are auto-detected and converted to the target format if needed.
 
 **Group types:**
 
