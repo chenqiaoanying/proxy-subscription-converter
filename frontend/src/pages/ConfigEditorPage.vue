@@ -142,8 +142,16 @@ async function handlePreview() {
   generating.value = true
   try {
     const result = await store.generate(configData.value, targetFormat.value)
-    previewBody.value = result.body
     previewLanguage.value = targetFormat.value === 'clash' ? 'yaml' : 'json'
+    if (previewLanguage.value === 'json') {
+      try {
+        previewBody.value = JSON.stringify(JSON.parse(result.body), null, 2)
+      } catch {
+        previewBody.value = result.body
+      }
+    } else {
+      previewBody.value = result.body
+    }
     previewDropped.value = result.dropped
     previewVisible.value = true
   } catch (e) {
@@ -247,7 +255,9 @@ function copyToClipboard(text: string) {
         />
       </el-tab-pane>
       <el-tab-pane label="Template" name="template">
-        <TemplatePanel v-model="configData.config_template" />
+        <!-- Skip render until the async fetchOne has populated configData,
+             so TemplatePanel seeds its local states from real data. -->
+        <TemplatePanel v-if="!loading" v-model="configData.config_template" />
       </el-tab-pane>
       <el-tab-pane label="Generate" name="generate">
         <div style="padding: 8px 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: 100%">

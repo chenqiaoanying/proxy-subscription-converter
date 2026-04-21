@@ -17,12 +17,10 @@ type TemplateMode = 'url' | 'object' | 'inline'
 
 interface FormatState {
   mode: TemplateMode
-  urlBuffer: string
-  // Shared body buffer between 'object' and 'inline' modes. The only
-  // difference between those modes is what commitActive does with this
-  // text: 'object' parses it into a dict before saving; 'inline' stores
-  // it verbatim.
-  bodyBuffer: string
+  url: string
+  // Shared buffer between 'object' and 'inline' modes. On commit, 'object'
+  // parses it into a dict; 'inline' stores it verbatim.
+  body: string
   bodyError: string
 }
 
@@ -49,114 +47,75 @@ function stateFromValue(
   v: TemplateSource | null | undefined,
   fmt: TargetFormat,
 ): FormatState {
-  let bodyBuffer = ''
-  if (v && v.type === 'object') bodyBuffer = stringify(v.value, fmt)
-  else if (v && v.type === 'inline') bodyBuffer = v.value
+  let body = ''
+  if (v && v.type === 'object') body = stringify(v.value, fmt)
+  else if (v && v.type === 'inline') body = v.value
   return {
     mode: v ? v.type : 'url',
-    urlBuffer: v && v.type === 'url' ? v.value : '',
-    bodyBuffer,
+    url: v && v.type === 'url' ? v.value : '',
+    body,
     bodyError: '',
   }
 }
 
-// Per-format local state. Three buffers + current mode are kept
-// independent per format so switching `activeFormat` or mode never
-// loses drafts. Only the ACTIVE MODE's buffer is committed to the
-// model.
-const states = reactive(new Map<TargetFormat, FormatState>())
+// SKIP means "don't overwrite the previous committed value" — used while the
+// user is mid-edit in object mode and the text doesn't parse yet.
+const SKIP = Symbol('skip')
 
-function ensureState(fmt: TargetFormat): FormatState {
-  let s = states.get(fmt)
-  if (!s) {
-    s = stateFromValue(model.value[fmt], fmt)
-    states.set(fmt, s)
+function templateSourceFromState(
+  s: FormatState,
+  fmt: TargetFormat,
+): TemplateSource | null | typeof SKIP {
+  if (s.mode === 'url') {
+    return s.url ? { type: 'url', value: s.url } : null
   }
-  return s
+  if (s.mode === 'inline') {
+    return s.body ? { type: 'inline', value: s.body } : null
+  }
+  // mode === 'object'
+  if (!s.body.trim()) {
+    s.bodyError = ''
+    return null
+  }
+  try {
+    const parsed = parseObjectText(s.body, fmt)
+    s.bodyError = ''
+    return { type: 'object', value: parsed }
+  } catch (e) {
+    const lang = fmt === 'clash' ? 'YAML' : 'JSON'
+    s.bodyError = `Invalid ${lang}: ${(e as Error).message}`
+    return SKIP
+  }
 }
 
-// Seed from whatever's in the model at construction time.
-for (const fmt of TARGET_FORMATS) ensureState(fmt)
+// Single source of truth: seeded once from the initial model value, then the
+// master copy for the rest of the component's lifetime. The model is derived
+// from `states` via the watcher below.
+const states = reactive<Record<TargetFormat, FormatState>>({
+  'sing-box': stateFromValue(model.value['sing-box'], 'sing-box'),
+  'clash': stateFromValue(model.value['clash'], 'clash'),
+})
 
 const activeFormat = ref<TargetFormat>(
   (Object.keys(model.value)[0] as TargetFormat | undefined) ?? 'sing-box',
 )
 
-const state = computed<FormatState>(() => ensureState(activeFormat.value))
+const state = computed<FormatState>(() => states[activeFormat.value])
 const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' : 'json'))
 
-// When an external model change arrives for a format whose local state
-// is still in-sync with the previous model value (i.e. no unsaved user
-// edits we'd clobber), re-seed that format's state. This covers the
-// async config-by-id load in ConfigEditorPage.
-const lastCommitted = new Map<TargetFormat, TemplateSource | null | undefined>()
-for (const fmt of TARGET_FORMATS) lastCommitted.set(fmt, model.value[fmt])
-
-watch(model, (m) => {
+watch(states, () => {
+  const next: ConfigTemplateMap = {}
   for (const fmt of TARGET_FORMATS) {
-    const incoming = m[fmt]
-    const prev = lastCommitted.get(fmt)
-    if (incoming !== prev) {
-      states.set(fmt, stateFromValue(incoming, fmt))
-      lastCommitted.set(fmt, incoming)
+    const value = templateSourceFromState(states[fmt], fmt)
+    if (value === SKIP) {
+      const prev = model.value[fmt]
+      if (prev !== undefined) next[fmt] = prev
+    } else if (value !== null) {
+      next[fmt] = value
     }
   }
-}, { deep: true })
-
-function writeModel(fmt: TargetFormat, value: TemplateSource | null): void {
-  const next: ConfigTemplateMap = { ...model.value }
-  if (value === null) {
-    delete next[fmt]
-  } else {
-    next[fmt] = value
-  }
-  lastCommitted.set(fmt, next[fmt])
   model.value = next
-}
-
-function commitActive(): void {
-  const fmt = activeFormat.value
-  const s = state.value
-  if (s.mode === 'url') {
-    writeModel(fmt, s.urlBuffer ? { type: 'url', value: s.urlBuffer } : null)
-    s.bodyError = ''
-    return
-  }
-  if (s.mode === 'inline') {
-    writeModel(fmt, s.bodyBuffer ? { type: 'inline', value: s.bodyBuffer } : null)
-    s.bodyError = ''
-    return
-  }
-  // mode === 'object': parse the shared body buffer into a dict before saving.
-  if (!s.bodyBuffer.trim()) {
-    writeModel(fmt, null)
-    s.bodyError = ''
-    return
-  }
-  try {
-    const parsed = parseObjectText(s.bodyBuffer, fmt)
-    writeModel(fmt, { type: 'object', value: parsed })
-    s.bodyError = ''
-  } catch (e) {
-    s.bodyError = `Invalid ${editorLanguage.value.toUpperCase()}: ${(e as Error).message}`
-    // Don't touch the model — keep previously-committed value until syntax is fixed.
-  }
-}
-
-function onModeChange(m: TemplateMode): void {
-  state.value.mode = m
-  commitActive()
-}
-
-function onUrlInput(v: string): void {
-  state.value.urlBuffer = v
-  commitActive()
-}
-
-function onBodyChange(v: string): void {
-  state.value.bodyBuffer = v
-  commitActive()
-}
+}, { deep: true })
 
 function onEditorMount(): void {
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
@@ -181,7 +140,7 @@ function onEditorMount(): void {
           {{ fmt }}
         </el-radio-button>
       </el-radio-group>
-      <el-radio-group :model-value="state.mode" @change="onModeChange">
+      <el-radio-group v-model="state.mode">
         <el-radio-button value="url">URL</el-radio-button>
         <el-radio-button value="object">Inline object</el-radio-button>
         <el-radio-button value="inline">Inline text</el-radio-button>
@@ -189,9 +148,9 @@ function onEditorMount(): void {
     </div>
 
     <template v-if="state.mode === 'url'">
-      <el-input :model-value="state.urlBuffer" :placeholder="activeFormat === 'clash'
+      <el-input v-model="state.url" :placeholder="activeFormat === 'clash'
         ? 'https://example.com/clash-template.yaml'
-        : 'https://example.com/sing-box-template.json'" @input="onUrlInput" />
+        : 'https://example.com/sing-box-template.json'" />
       <el-text type="info" size="small">
         The {{ activeFormat }} template will be fetched from this URL each time the
         generate endpoint is called with <code>?format={{ activeFormat }}</code>.
@@ -211,8 +170,8 @@ function onEditorMount(): void {
           where byte-for-byte fidelity matters.
         </template>
       </el-text>
-      <MonacoEditor :model-value="state.bodyBuffer" :language="editorLanguage"
-        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px" @update:model-value="onBodyChange"
+      <MonacoEditor v-model="state.body" :language="editorLanguage"
+        style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
         @mount="onEditorMount" />
     </template>
   </div>
