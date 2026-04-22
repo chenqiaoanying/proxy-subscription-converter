@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Link } from '@element-plus/icons-vue'
 import YAML from 'yaml'
 import { useConfigStore } from '@/stores/configs'
 import {
@@ -33,12 +34,32 @@ const previewLanguage = ref<'json' | 'yaml'>('json')
 const previewDropped = ref(0)
 const targetFormat = ref<TargetFormat>('sing-box')
 const dirty = ref(false)
+
+const availableFormats = computed(() =>
+  TARGET_FORMATS.filter(fmt => configData.value.config_template[fmt] != null)
+)
+
+watch(availableFormats, (formats) => {
+  if (formats.length > 0 && !formats.includes(targetFormat.value)) {
+    targetFormat.value = formats[0]
+  }
+}, { immediate: true })
 let skipDirtyWatch = false
 
-const statelessGenerateUrl = computed(() =>
+const statelessGenerateUrls = computed(() =>
   configUrl.value
-    ? store.getStatelessGenerateUrl(configUrl.value, targetFormat.value)
-    : '',
+    ? Object.fromEntries(
+        availableFormats.value.map(fmt => [fmt, store.getStatelessGenerateUrl(configUrl.value, fmt)])
+      ) as Partial<Record<TargetFormat, string>>
+    : {}
+)
+
+const statefulGenerateUrls = computed(() =>
+  localConfigId.value
+    ? Object.fromEntries(
+        availableFormats.value.map(fmt => [fmt, store.getGenerateUrl(localConfigId.value!, fmt)])
+      ) as Partial<Record<TargetFormat, string>>
+    : {}
 )
 
 const generateFileName = computed(() =>
@@ -224,23 +245,6 @@ function copyToClipboard(text: string) {
         <el-icon><Check /></el-icon>
         Save
       </el-button>
-      <template v-if="localConfigId">
-        <el-divider direction="vertical" />
-        <el-text type="info" size="small">Saved generate URL:</el-text>
-        <el-link
-          :href="store.getGenerateUrl(localConfigId, targetFormat)"
-          target="_blank"
-          type="primary"
-        >
-          {{ store.getGenerateUrl(localConfigId, targetFormat) }}
-        </el-link>
-        <el-button
-          size="small"
-          @click="copyToClipboard(store.getGenerateUrl(localConfigId!, targetFormat))"
-        >
-          <el-icon><CopyDocument /></el-icon>
-        </el-button>
-      </template>
     </div>
 
     <!-- Tabs -->
@@ -260,103 +264,238 @@ function copyToClipboard(text: string) {
         <TemplatePanel v-if="!loading" v-model="configData.config_template" />
       </el-tab-pane>
       <el-tab-pane label="Generate" name="generate">
-        <div style="padding: 8px 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: 100%">
+        <div style="padding: 8px 0 24px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; max-height: 100%">
+
+          <!-- No templates warning -->
+          <el-alert
+            v-if="availableFormats.length === 0"
+            title="No templates configured"
+            type="warning"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              Go to the <el-link type="warning" @click="activeTab = 'template'" style="vertical-align: baseline">Template tab</el-link>
+              and add a sing-box or Clash template to enable generation.
+            </template>
+          </el-alert>
 
           <!-- Case 1: Direct generate & download -->
-          <el-card>
+          <el-card shadow="never" style="border-radius: 8px">
             <template #header>
-              <el-text tag="b">Generate Config</el-text>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <el-icon style="color: var(--el-color-primary)"><Download /></el-icon>
+                <span style="font-weight: 600">Generate &amp; Download</span>
+              </div>
             </template>
-            <el-text type="info">
-              Fetch your subscriptions, apply groups, and download the merged config
-              in the selected target format.
-            </el-text>
-            <div style="margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
-              <span>
-                <el-text size="small" style="margin-right: 8px">Target format:</el-text>
-                <el-radio-group v-model="targetFormat" size="small">
-                  <el-radio-button v-for="fmt in TARGET_FORMATS" :key="fmt" :value="fmt">
+
+            <div v-if="availableFormats.length === 0" style="color: var(--el-text-color-secondary); font-size: 13px">
+              Configure a template first to enable generation.
+            </div>
+            <template v-else>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
+                <div
+                  v-for="fmt in availableFormats"
+                  :key="fmt"
+                  style="
+                    display: flex; align-items: center; gap: 10px;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    border: 1px solid var(--el-border-color);
+                    flex: 1; min-width: 200px;
+                    background: var(--el-fill-color-lighter);
+                  "
+                >
+                  <el-tag :type="fmt === 'clash' ? 'success' : 'primary'" effect="dark" size="small" style="flex-shrink: 0">
                     {{ fmt }}
-                  </el-radio-button>
-                </el-radio-group>
-              </span>
-              <el-button type="primary" :loading="generating" @click="handlePreview">
-                <el-icon><View /></el-icon>
-                Preview
-              </el-button>
-              <el-button type="success" :loading="generating" @click="handleGenerate">
-                <el-icon><Download /></el-icon>
-                Generate &amp; Download
-              </el-button>
+                  </el-tag>
+                  <span style="flex: 1" />
+                  <el-button
+                    size="small"
+                    :loading="generating && targetFormat === fmt"
+                    @click="targetFormat = fmt; handlePreview()"
+                  >
+                    <el-icon><View /></el-icon>
+                    Preview
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :loading="generating && targetFormat === fmt"
+                    @click="targetFormat = fmt; handleGenerate()"
+                  >
+                    <el-icon><Download /></el-icon>
+                    Download
+                  </el-button>
+                </div>
+              </div>
+            </template>
+          </el-card>
+
+          <!-- Case 2: Stateful URL (saved config) -->
+          <el-card shadow="never" style="border-radius: 8px">
+            <template #header>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <el-icon style="color: var(--el-color-warning)"><DataBoard /></el-icon>
+                <span style="font-weight: 600">Stateful Generate URL</span>
+              </div>
+            </template>
+
+            <el-text type="info" size="small">
+              Use this URL when your config is saved on this server. It always reflects the latest saved version — no re-upload needed.
+            </el-text>
+
+            <div style="margin-top: 16px">
+              <template v-if="!localConfigId">
+                <el-alert type="warning" :closable="false" show-icon style="border-radius: 6px">
+                  <template #default>
+                    Config not saved yet.
+                    <el-link type="warning" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">Save now</el-link>
+                    to get a permanent URL.
+                  </template>
+                </el-alert>
+              </template>
+              <template v-else>
+                <el-alert v-if="dirty" type="info" :closable="false" show-icon style="border-radius: 6px; margin-bottom: 12px">
+                  <template #default>
+                    You have unsaved changes. URLs below point to the last saved version.
+                    <el-link type="primary" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">Save now</el-link>
+                    to update them.
+                  </template>
+                </el-alert>
+                <el-text v-if="availableFormats.length === 0" type="info" size="small">
+                  No templates configured. Add a template in the Template tab first.
+                </el-text>
+                <div v-else style="display: flex; flex-direction: column; gap: 10px">
+                  <div
+                    v-for="fmt in availableFormats"
+                    :key="fmt"
+                    style="padding: 12px 14px; border-radius: 8px; border: 1px solid var(--el-border-color-light); background: var(--el-fill-color-lighter)"
+                  >
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
+                      <el-tag :type="fmt === 'clash' ? 'success' : 'primary'" effect="dark" size="small">{{ fmt }}</el-tag>
+                      <el-text type="info" size="small">— use as remote profile in {{ fmt === 'clash' ? 'Mihomo / Clash' : 'sing-box' }}</el-text>
+                    </div>
+                    <el-input :model-value="statefulGenerateUrls[fmt] ?? ''" readonly size="small">
+                      <template #append>
+                        <el-button @click="copyToClipboard(statefulGenerateUrls[fmt]!)">
+                          <el-icon><CopyDocument /></el-icon>
+                        </el-button>
+                      </template>
+                    </el-input>
+                  </div>
+                </div>
+              </template>
             </div>
           </el-card>
 
-          <!-- Case 2: Stateless URL -->
-          <el-card>
+          <!-- Case 3: Stateless URL -->
+          <el-card shadow="never" style="border-radius: 8px">
             <template #header>
-              <el-text tag="b">Stateless Generate URL</el-text>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <el-icon style="color: var(--el-color-success)"><Link /></el-icon>
+                <span style="font-weight: 600">Stateless Generate URL</span>
+              </div>
             </template>
-            <el-text type="info">
-              Host your config on GitHub Gist or S3 to get a permanent shareable generate URL — no account on this server needed.
+
+            <el-text type="info" size="small">
+              Host your config on GitHub Gist or S3 — no account on this server needed.
+              Share the URL as a permanent remote profile.
             </el-text>
 
-            <el-steps :active="configUrl ? 2 : 0" finish-status="success" style="margin: 20px 0">
-              <el-step title="Export config" />
-              <el-step title="Upload &amp; paste URL" />
-              <el-step title="Share generate URL" />
-            </el-steps>
-
-            <div style="display: flex; flex-direction: column; gap: 20px">
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px">
               <!-- Step 1 -->
-              <div>
-                <el-text tag="b" size="small">Step 1 — Export your config</el-text>
-                <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px">
-                  <el-button @click="handleExportConfig">
-                    <el-icon><Download /></el-icon>
-                    Export Config
-                  </el-button>
-                  <el-text type="info" size="small">
-                    Upload this file to a GitHub Gist or S3 bucket and copy the raw URL.
-                  </el-text>
+              <div style="display: flex; gap: 16px; align-items: flex-start">
+                <div style="
+                  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+                  background: var(--el-color-primary); color: #fff;
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 13px; font-weight: 600; margin-top: 2px;
+                ">1</div>
+                <div style="flex: 1">
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Export your config</div>
+                  <div style="display: flex; align-items: center; gap: 12px">
+                    <el-button size="small" @click="handleExportConfig">
+                      <el-icon><Download /></el-icon>
+                      Export Config
+                    </el-button>
+                    <el-text type="info" size="small">Then upload to GitHub Gist or S3 and copy the raw URL.</el-text>
+                  </div>
                 </div>
               </div>
 
               <el-divider style="margin: 0" />
 
               <!-- Step 2 -->
-              <div>
-                <el-text tag="b" size="small">Step 2 — Paste the raw URL of your uploaded config</el-text>
-                <el-input
-                  v-model="configUrl"
-                  style="margin-top: 10px"
-                  placeholder="https://gist.githubusercontent.com/user/abc123/raw/config.yaml"
-                  clearable
-                />
+              <div style="display: flex; gap: 16px; align-items: flex-start">
+                <div style="
+                  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+                  background: var(--el-color-primary); color: #fff;
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 13px; font-weight: 600; margin-top: 2px;
+                ">2</div>
+                <div style="flex: 1">
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Paste your raw config URL</div>
+                  <el-input
+                    v-model="configUrl"
+                    placeholder="https://gist.githubusercontent.com/user/abc123/raw/config.yaml"
+                    clearable
+                    :prefix-icon="Link"
+                  />
+                </div>
               </div>
 
               <el-divider style="margin: 0" />
 
               <!-- Step 3 -->
-              <div>
-                <el-text tag="b" size="small">Step 3 — Your generate URL</el-text>
-                <el-input
-                  :model-value="statelessGenerateUrl"
-                  style="margin-top: 10px"
-                  readonly
-                  placeholder="Paste your config URL above to build this link"
-                >
-                  <template #append>
-                    <el-button
-                      :disabled="!statelessGenerateUrl"
-                      @click="copyToClipboard(statelessGenerateUrl)"
+              <div style="display: flex; gap: 16px; align-items: flex-start">
+                <div style="
+                  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+                  background: var(--el-color-primary); color: #fff;
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 13px; font-weight: 600; margin-top: 2px;
+                ">3</div>
+                <div style="flex: 1">
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Share your generate URLs</div>
+
+                  <el-text v-if="availableFormats.length === 0" type="info" size="small">
+                    No templates configured. Add a template in the Template tab first.
+                  </el-text>
+                  <div v-else style="display: flex; flex-direction: column; gap: 10px">
+                    <div
+                      v-for="fmt in availableFormats"
+                      :key="fmt"
+                      style="
+                        padding: 12px 14px;
+                        border-radius: 8px;
+                        border: 1px solid var(--el-border-color-light);
+                        background: var(--el-fill-color-lighter);
+                      "
                     >
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
-                  </template>
-                </el-input>
-                <el-text v-if="statelessGenerateUrl" type="success" size="small" style="margin-top: 6px; display: block">
-                  Use this URL as a remote profile in {{ targetFormat === 'clash' ? 'Mihomo/Clash' : 'sing-box' }}.
-                </el-text>
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
+                        <el-tag :type="fmt === 'clash' ? 'success' : 'primary'" effect="dark" size="small">{{ fmt }}</el-tag>
+                        <el-text type="info" size="small">
+                          — use as remote profile in {{ fmt === 'clash' ? 'Mihomo / Clash' : 'sing-box' }}
+                        </el-text>
+                      </div>
+                      <el-input
+                        :model-value="statelessGenerateUrls[fmt] ?? ''"
+                        readonly
+                        :placeholder="configUrl ? 'Building URL…' : 'Paste config URL in step 2'"
+                        size="small"
+                      >
+                        <template #append>
+                          <el-button
+                            :disabled="!statelessGenerateUrls[fmt]"
+                            @click="copyToClipboard(statelessGenerateUrls[fmt]!)"
+                          >
+                            <el-icon><CopyDocument /></el-icon>
+                          </el-button>
+                        </template>
+                      </el-input>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </el-card>

@@ -13,7 +13,7 @@ import {
 
 const model = defineModel<ConfigTemplateMap>({ required: true })
 
-type TemplateMode = 'url' | 'object' | 'inline'
+type TemplateMode = 'none' | 'url' | 'object' | 'inline'
 
 interface FormatState {
   mode: TemplateMode
@@ -51,7 +51,7 @@ function stateFromValue(
   if (v && v.type === 'object') body = stringify(v.value, fmt)
   else if (v && v.type === 'inline') body = v.value
   return {
-    mode: v ? v.type : 'url',
+    mode: v ? v.type : 'none',
     url: v && v.type === 'url' ? v.value : '',
     body,
     bodyError: '',
@@ -74,8 +74,10 @@ const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' :
 
 function commitFromState(): void {
   let { mode, url, body } = state.value
-  var configTemplate: TemplateSource | null = null
+  let configTemplate: TemplateSource | null = null
   switch (mode) {
+    case 'none':
+      break
     case 'url':
       configTemplate = url ? { type: 'url', value: url } : null
       break
@@ -91,7 +93,6 @@ function commitFromState(): void {
         } catch (e) {
           const lang = activeFormat.value === 'clash' ? 'YAML' : 'JSON'
           state.value.bodyError = `Invalid ${lang}: ${(e as Error).message}`
-          // Leave previous committed model value untouched while mid-edit.
           return
         }
       }
@@ -107,7 +108,10 @@ watch(model, () => {
   for (const fmt of TARGET_FORMATS) {
     const v = model.value[fmt]
     const s = states[fmt]
-    if (!v) continue
+    if (!v) {
+      if (s.mode !== 'none') { s.mode = 'none'; s.bodyError = '' }
+      continue
+    }
     if (v.type === 'url') {
       if (s.mode !== 'url' || s.url !== v.value) {
         s.mode = 'url'
@@ -165,13 +169,20 @@ function onEditorMount(): void {
         </el-radio-button>
       </el-radio-group>
       <el-radio-group v-model="state.mode" @update:model-value="commitFromState">
+        <el-radio-button value="none">None</el-radio-button>
         <el-radio-button value="url">URL</el-radio-button>
         <el-radio-button value="object">Inline object</el-radio-button>
         <el-radio-button value="inline">Inline text</el-radio-button>
       </el-radio-group>
     </div>
 
-    <template v-if="state.mode === 'url'">
+    <template v-if="state.mode === 'none'">
+      <el-text type="info" size="small">
+        No template for <strong>{{ activeFormat }}</strong>. This format will be unavailable in the Generate tab.
+      </el-text>
+    </template>
+
+    <template v-else-if="state.mode === 'url'">
       <el-input v-model="state.url" @update:model-value="commitFromState" :placeholder="activeFormat === 'clash'
         ? 'https://example.com/clash-template.yaml'
         : 'https://example.com/sing-box-template.json'" />
@@ -181,7 +192,7 @@ function onEditorMount(): void {
       </el-text>
     </template>
 
-    <template v-else>
+    <template v-else-if="state.mode === 'object' || state.mode === 'inline'">
       <el-alert v-if="state.bodyError" :title="state.bodyError" type="error" :closable="false" />
       <el-text type="info" size="small">
         <template v-if="state.mode === 'object'">
