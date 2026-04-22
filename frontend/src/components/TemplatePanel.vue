@@ -58,39 +58,8 @@ function stateFromValue(
   }
 }
 
-// SKIP means "don't overwrite the previous committed value" — used while the
-// user is mid-edit in object mode and the text doesn't parse yet.
-const SKIP = Symbol('skip')
-
-function templateSourceFromState(
-  s: FormatState,
-  fmt: TargetFormat,
-): TemplateSource | null | typeof SKIP {
-  if (s.mode === 'url') {
-    return s.url ? { type: 'url', value: s.url } : null
-  }
-  if (s.mode === 'inline') {
-    return s.body ? { type: 'inline', value: s.body } : null
-  }
-  // mode === 'object'
-  if (!s.body.trim()) {
-    s.bodyError = ''
-    return null
-  }
-  try {
-    const parsed = parseObjectText(s.body, fmt)
-    s.bodyError = ''
-    return { type: 'object', value: parsed }
-  } catch (e) {
-    const lang = fmt === 'clash' ? 'YAML' : 'JSON'
-    s.bodyError = `Invalid ${lang}: ${(e as Error).message}`
-    return SKIP
-  }
-}
-
-// Single source of truth: seeded once from the initial model value, then the
-// master copy for the rest of the component's lifetime. The model is derived
-// from `states` via the watcher below.
+// UI state: seeded from the model, then kept in sync both ways — written by
+// event handlers (UI → model) and by the model→UI watcher below.
 const states = reactive<Record<TargetFormat, FormatState>>({
   'sing-box': stateFromValue(model.value['sing-box'], 'sing-box'),
   'clash': stateFromValue(model.value['clash'], 'clash'),
@@ -103,18 +72,73 @@ const activeFormat = ref<TargetFormat>(
 const state = computed<FormatState>(() => states[activeFormat.value])
 const editorLanguage = computed(() => (activeFormat.value === 'clash' ? 'yaml' : 'json'))
 
-watch(states, () => {
-  const next: ConfigTemplateMap = {}
+function commitFromState(): void {
+  let { mode, url, body } = state.value
+  var configTemplate: TemplateSource | null = null
+  switch (mode) {
+    case 'url':
+      configTemplate = url ? { type: 'url', value: url } : null
+      break
+    case 'inline':
+      configTemplate = body ? { type: 'inline', value: body } : null
+      break
+    case 'object':
+      if (body.trim()) {
+        try {
+          const parsed = parseObjectText(body, activeFormat.value)
+          state.value.bodyError = ''
+          configTemplate = { type: 'object', value: parsed }
+        } catch (e) {
+          const lang = activeFormat.value === 'clash' ? 'YAML' : 'JSON'
+          state.value.bodyError = `Invalid ${lang}: ${(e as Error).message}`
+          // Leave previous committed model value untouched while mid-edit.
+          return
+        }
+      }
+      break
+  }
+  model.value[activeFormat.value] = configTemplate
+}
+
+// Model → UI sync: reconcile `states[fmt]` when the parent mutates the model
+// externally. Guarded by equality checks so handler-originated writes don't
+// loop back as redundant state updates.
+watch(model, () => {
   for (const fmt of TARGET_FORMATS) {
-    const value = templateSourceFromState(states[fmt], fmt)
-    if (value === SKIP) {
-      const prev = model.value[fmt]
-      if (prev !== undefined) next[fmt] = prev
-    } else if (value !== null) {
-      next[fmt] = value
+    const v = model.value[fmt]
+    const s = states[fmt]
+    if (!v) continue
+    if (v.type === 'url') {
+      if (s.mode !== 'url' || s.url !== v.value) {
+        s.mode = 'url'
+        s.url = v.value
+        s.bodyError = ''
+      }
+    } else if (v.type === 'inline') {
+      if (s.mode !== 'inline' || s.body !== v.value) {
+        s.mode = 'inline'
+        s.body = v.value
+        s.bodyError = ''
+      }
+    } else {
+      // object: compare parsed equality so user's in-progress whitespace stays.
+      let currentParsed: Record<string, unknown> | null = null
+      try {
+        currentParsed = s.body.trim() ? parseObjectText(s.body, fmt) : null
+      } catch {
+        currentParsed = null
+      }
+      const same =
+        s.mode === 'object' &&
+        currentParsed !== null &&
+        JSON.stringify(currentParsed) === JSON.stringify(v.value)
+      if (!same) {
+        s.mode = 'object'
+        s.body = stringify(v.value, fmt)
+        s.bodyError = ''
+      }
     }
   }
-  model.value = next
 }, { deep: true })
 
 function onEditorMount(): void {
@@ -140,7 +164,7 @@ function onEditorMount(): void {
           {{ fmt }}
         </el-radio-button>
       </el-radio-group>
-      <el-radio-group v-model="state.mode">
+      <el-radio-group v-model="state.mode" @update:model-value="commitFromState">
         <el-radio-button value="url">URL</el-radio-button>
         <el-radio-button value="object">Inline object</el-radio-button>
         <el-radio-button value="inline">Inline text</el-radio-button>
@@ -148,7 +172,7 @@ function onEditorMount(): void {
     </div>
 
     <template v-if="state.mode === 'url'">
-      <el-input v-model="state.url" :placeholder="activeFormat === 'clash'
+      <el-input v-model="state.url" @update:model-value="commitFromState" :placeholder="activeFormat === 'clash'
         ? 'https://example.com/clash-template.yaml'
         : 'https://example.com/sing-box-template.json'" />
       <el-text type="info" size="small">
@@ -170,7 +194,7 @@ function onEditorMount(): void {
           where byte-for-byte fidelity matters.
         </template>
       </el-text>
-      <MonacoEditor v-model="state.body" :language="editorLanguage"
+      <MonacoEditor v-model="state.body" @update:model-value="commitFromState" :language="editorLanguage"
         style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px"
         @mount="onEditorMount" />
     </template>
