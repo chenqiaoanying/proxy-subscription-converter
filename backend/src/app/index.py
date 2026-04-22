@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
@@ -7,6 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.app.database import engine, init_db
 from src.app.routers import generate
 from src.app.routers import configs
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager

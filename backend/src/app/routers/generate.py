@@ -1,11 +1,14 @@
 import asyncio
 import json
+import logging
 import re
 import uuid
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import httpx
 import yaml
@@ -435,10 +438,12 @@ async def _run_generate(config: ConfigData, target: str | None) -> GenerateResul
     )
     proxy_map: dict[str, list[Proxy]] = {}
     userinfo_headers: list[str] = []
-    for item in fetch_results:
+    for (sub_name, _), item in zip(enabled_subs, fetch_results):
         if isinstance(item, BaseException):
+            logger.warning("Failed to fetch subscription %r: %s", sub_name, item)
             continue
         name, proxies, userinfo = item
+        logger.info("Fetched subscription %r: %d proxies", name, len(proxies))
         proxy_map[name] = proxies
         if userinfo:
             userinfo_headers.append(userinfo)
@@ -446,13 +451,21 @@ async def _run_generate(config: ConfigData, target: str | None) -> GenerateResul
     template = await _load_template(config.config_template.get(target_format))
     groups, proxies_out = _build_groups(sub_cfg.groups, proxy_map)
     body, dropped = emitter_cls.emit(template, proxies_out, groups)
+    if dropped:
+        logger.warning(
+            "Dropped %d proxies emitting to %r:",
+            len(dropped),
+            target_format,
+        )
+        for p in dropped:
+            logger.warning("  dropped proxy: name=%r type=%r server=%r", p.name, p.type, p.server)
 
     response_headers: dict[str, str] = {}
     aggregated_userinfo = _aggregate_subscription_userinfo(userinfo_headers)
     if aggregated_userinfo:
         response_headers["subscription-userinfo"] = aggregated_userinfo
     if dropped:
-        response_headers["X-Dropped-Proxies"] = str(dropped)
+        response_headers["X-Dropped-Proxies"] = str(len(dropped))
 
     return GenerateResult(body=body, media_type=emitter_cls.response_media_type, headers=response_headers)
 

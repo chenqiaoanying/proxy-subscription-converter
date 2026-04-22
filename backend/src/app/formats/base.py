@@ -36,6 +36,6 @@ class TargetEmitter(Protocol):
         template: dict[str, Any],
         proxies: list[Proxy],
         groups: list[ProxyGroup],
-    ) -> tuple[bytes, int]:
-        """Return (serialised body, count of proxies dropped due to incompat)."""
+    ) -> tuple[bytes, list[Proxy]]:
+        """Return (serialised body, list of proxies dropped due to format incompatibility)."""
         ...

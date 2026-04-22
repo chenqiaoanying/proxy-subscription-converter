@@ -288,17 +288,17 @@ class SingBoxEmitter:
         template: dict[str, Any],
         proxies: list[Proxy],
         groups: list[ProxyGroup],
-    ) -> tuple[bytes, int]:
+    ) -> tuple[bytes, list[Proxy]]:
         existing = template.get("outbounds", [])
         if not isinstance(existing, list):
             existing = []
         group_entries = [_group_to_entry(g) for g in groups]
         proxy_entries: list[dict[str, Any]] = []
-        dropped = 0
+        dropped: list[Proxy] = []
         for p in proxies:
             entry = _proxy_to_entry(p)
             if entry is None:
-                dropped += 1
+                dropped.append(p)
                 continue
             proxy_entries.append(entry)
         template["outbounds"] = group_entries + proxy_entries + list(existing)

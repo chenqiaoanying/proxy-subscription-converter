@@ -360,7 +360,7 @@ class ClashEmitter:
         template: dict[str, Any],
         proxies: list[Proxy],
         groups: list[ProxyGroup],
-    ) -> tuple[bytes, int]:
+    ) -> tuple[bytes, list[Proxy]]:
         existing_proxies = template.get("proxies") or []
         existing_groups = template.get("proxy-groups") or []
         if not isinstance(existing_proxies, list):
@@ -368,12 +368,12 @@ class ClashEmitter:
         if not isinstance(existing_groups, list):
             existing_groups = []
 
-        dropped = 0
+        dropped: list[Proxy] = []
         proxy_entries: list[dict[str, Any]] = []
         for p in proxies:
             entry = _proxy_to_entry(p)
             if entry is None:
-                dropped += 1
+                dropped.append(p)
                 continue
             proxy_entries.append(entry)
 
