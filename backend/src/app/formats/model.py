@@ -120,6 +120,68 @@ class SocksProxy(BaseProxy):
     version: str = "5"
 
 
+class ShadowsocksRProxy(BaseProxy):
+    type: Literal["shadowsocksr"] = "shadowsocksr"
+    cipher: str
+    password: str
+    obfs: str
+    protocol: str
+    obfs_param: str | None = None
+    protocol_param: str | None = None
+    udp: bool = False
+
+
+class SshProxy(BaseProxy):
+    type: Literal["ssh"] = "ssh"
+    username: str | None = None
+    password: str | None = None
+    private_key: str | None = None
+    private_key_passphrase: str | None = None
+    host_key: list[str] | None = None
+    host_key_algorithms: list[str] | None = None
+
+
+class SnellProxy(BaseProxy):
+    type: Literal["snell"] = "snell"
+    psk: str
+    version: int | None = None
+    obfs_mode: str | None = None
+    obfs_host: str | None = None
+    udp: bool = False
+
+
+class Hysteria1Proxy(BaseProxy):
+    type: Literal["hysteria"] = "hysteria"
+    auth_str: str | None = None
+    obfs: str | None = None
+    alpn: list[str] | None = None
+    protocol: str | None = None
+    up_mbps: int | None = None
+    down_mbps: int | None = None
+    fast_open: bool = False
+
+
+class AnyTlsProxy(BaseProxy):
+    type: Literal["anytls"] = "anytls"
+    password: str
+    udp: bool = False
+    idle_session_check_interval: int | None = None
+    idle_session_timeout: int | None = None
+    min_idle_session: int | None = None
+    # TLS fields (flat in Clash: sni/alpn/skip-cert-verify/client-fingerprint) stored in BaseProxy.tls
+
+
+class MieruProxy(BaseProxy):
+    type: Literal["mieru"] = "mieru"
+    port: int = 0  # 0 = not set; use port_range instead
+    port_range: str | None = None  # e.g. "2090-2099"; mutually exclusive with port
+    mieru_transport: str = "TCP"  # TCP or UDP — renamed to avoid clash with BaseProxy.transport
+    username: str
+    password: str
+    multiplexing: str | None = None
+    traffic_pattern: str | None = None
+
+
 class UnknownProxy(BaseProxy):
     """Fallback preserving the original raw dict for round-trip in same format."""
 
@@ -139,6 +201,12 @@ Proxy = Annotated[
         WireguardProxy,
         HttpProxy,
         SocksProxy,
+        ShadowsocksRProxy,
+        SshProxy,
+        SnellProxy,
+        Hysteria1Proxy,
+        AnyTlsProxy,
+        MieruProxy,
         UnknownProxy,
     ],
     Field(discriminator="type"),
@@ -166,4 +234,10 @@ KNOWN_PROXY_TYPES: set[str] = {
     "wireguard",
     "http",
     "socks",
+    "shadowsocksr",
+    "ssh",
+    "snell",
+    "hysteria",
+    "anytls",
+    "mieru",
 }

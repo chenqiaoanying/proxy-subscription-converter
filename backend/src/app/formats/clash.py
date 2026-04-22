@@ -13,14 +13,21 @@ from src.app.formats.common import (
     clash_transport_to,
 )
 from src.app.formats.model import (
+    AnyTlsProxy,
     BaseProxy,
+    Hysteria1Proxy,
     Hysteria2Proxy,
     HttpProxy,
     KNOWN_PROXY_TYPES,
+    MieruProxy,
     Proxy,
     ProxyGroup,
     ShadowsocksProxy,
+    ShadowsocksRProxy,
+    SshProxy,
+    SnellProxy,
     SocksProxy,
+    TlsConfig,
     TrojanProxy,
     TuicProxy,
     UnknownProxy,
@@ -46,6 +53,12 @@ _CLASH_TO_UNIFIED: dict[str, str] = {
     "http": "http",
     "socks5": "socks",
     "socks": "socks",
+    "ssr": "shadowsocksr",
+    "ssh": "ssh",
+    "snell": "snell",
+    "hysteria": "hysteria",
+    "anytls": "anytls",
+    "mieru": "mieru",
 }
 
 _UNIFIED_TO_CLASH: dict[str, str] = {
@@ -58,6 +71,12 @@ _UNIFIED_TO_CLASH: dict[str, str] = {
     "wireguard": "wireguard",
     "http": "http",
     "socks": "socks5",
+    "shadowsocksr": "ssr",
+    "ssh": "ssh",
+    "snell": "snell",
+    "hysteria": "hysteria",
+    "anytls": "anytls",
+    "mieru": "mieru",
 }
 
 _CLASH_GROUP_TYPE_FROM: dict[str, str] = {
@@ -76,8 +95,11 @@ def _proxy_from_entry(entry: dict[str, Any]) -> Proxy | None:
     name = entry.get("name")
     server = entry.get("server")
     port = entry.get("port")
-    if not (isinstance(raw_type, str) and isinstance(name, str) and server and isinstance(port, int)):
+    # mieru may omit port in favour of port-range
+    port_ok = isinstance(port, int) or (raw_type == "mieru" and entry.get("port-range"))
+    if not (isinstance(raw_type, str) and isinstance(name, str) and server and port_ok):
         return None
+    port = port if isinstance(port, int) else 0
 
     unified_type = _CLASH_TO_UNIFIED.get(raw_type)
     tls = clash_tls_from(entry)
@@ -153,6 +175,95 @@ def _proxy_from_entry(entry: dict[str, Any]) -> Proxy | None:
                 username=entry.get("username"),
                 password=entry.get("password"),
                 version="5",
+            )
+        if unified_type == "shadowsocksr":
+            return ShadowsocksRProxy(
+                **common,
+                cipher=entry.get("cipher", ""),
+                password=entry.get("password", ""),
+                obfs=entry.get("obfs", ""),
+                protocol=entry.get("protocol", ""),
+                obfs_param=entry.get("obfs-param"),
+                protocol_param=entry.get("protocol-param"),
+                udp=bool(entry.get("udp", False)),
+            )
+        if unified_type == "ssh":
+            return SshProxy(
+                **common,
+                username=entry.get("username"),
+                password=entry.get("password"),
+                private_key=entry.get("private-key"),
+                private_key_passphrase=entry.get("private-key-passphrase"),
+                host_key=entry.get("host-key"),
+                host_key_algorithms=entry.get("host-key-algorithms"),
+            )
+        if unified_type == "snell":
+            obfs_opts: dict[str, Any] = entry.get("obfs-opts") or {}
+            return SnellProxy(
+                **common,
+                psk=entry.get("psk", ""),
+                version=entry.get("version"),
+                obfs_mode=obfs_opts.get("mode"),
+                obfs_host=obfs_opts.get("host"),
+                udp=bool(entry.get("udp", False)),
+            )
+        if unified_type == "hysteria":
+            tls_fields = ("sni", "skip-cert-verify", "alpn", "fingerprint")
+            hy_tls = TlsConfig(
+                enabled=True,
+                server_name=entry.get("sni"),
+                insecure=bool(entry.get("skip-cert-verify", False)),
+                alpn=entry.get("alpn"),
+                utls_fingerprint=entry.get("fingerprint"),
+            ) if any(entry.get(k) for k in tls_fields) else None
+            return Hysteria1Proxy(
+                name=name,
+                server=server,
+                port=port,
+                tls=hy_tls,
+                transport=None,
+                auth_str=entry.get("auth-str"),
+                obfs=entry.get("obfs"),
+                alpn=entry.get("alpn"),
+                protocol=entry.get("protocol"),
+                up_mbps=_coerce_int(entry.get("up")),
+                down_mbps=_coerce_int(entry.get("down")),
+                fast_open=bool(entry.get("fast-open", False)),
+            )
+        if unified_type == "anytls":
+            tls_fields = ("sni", "skip-cert-verify", "alpn", "client-fingerprint")
+            at_tls = TlsConfig(
+                enabled=True,
+                server_name=entry.get("sni"),
+                insecure=bool(entry.get("skip-cert-verify", False)),
+                alpn=entry.get("alpn"),
+                utls_fingerprint=entry.get("client-fingerprint"),
+            ) if any(entry.get(k) for k in tls_fields) else None
+            return AnyTlsProxy(
+                name=name,
+                server=server,
+                port=port,
+                tls=at_tls,
+                transport=None,
+                password=entry.get("password", ""),
+                udp=bool(entry.get("udp", False)),
+                idle_session_check_interval=entry.get("idle-session-check-interval"),
+                idle_session_timeout=entry.get("idle-session-timeout"),
+                min_idle_session=entry.get("min-idle-session"),
+            )
+        if unified_type == "mieru":
+            return MieruProxy(
+                name=name,
+                server=server,
+                port=port,
+                tls=None,
+                transport=None,
+                port_range=entry.get("port-range"),
+                mieru_transport=entry.get("transport", "TCP"),
+                username=entry.get("username", ""),
+                password=entry.get("password", ""),
+                multiplexing=entry.get("multiplexing"),
+                traffic_pattern=entry.get("traffic-pattern"),
             )
     except Exception:
         pass
@@ -235,8 +346,9 @@ def _proxy_to_entry(p: Proxy) -> dict[str, Any] | None:
         "server": p.server,
         "port": p.port,
     }
-    entry.update(clash_tls_to(p.tls))
-    entry.update(clash_transport_to(p.transport))
+    if not isinstance(p, (Hysteria1Proxy, AnyTlsProxy, MieruProxy)):
+        entry.update(clash_tls_to(p.tls))
+        entry.update(clash_transport_to(p.transport))
 
     if isinstance(p, ShadowsocksProxy):
         entry["cipher"] = p.method
@@ -298,6 +410,96 @@ def _proxy_to_entry(p: Proxy) -> dict[str, Any] | None:
             entry["username"] = p.username
         if p.password:
             entry["password"] = p.password
+    elif isinstance(p, ShadowsocksRProxy):
+        entry["cipher"] = p.cipher
+        entry["password"] = p.password
+        entry["obfs"] = p.obfs
+        entry["protocol"] = p.protocol
+        if p.obfs_param:
+            entry["obfs-param"] = p.obfs_param
+        if p.protocol_param:
+            entry["protocol-param"] = p.protocol_param
+        if p.udp:
+            entry["udp"] = True
+    elif isinstance(p, SshProxy):
+        if p.username:
+            entry["username"] = p.username
+        if p.password:
+            entry["password"] = p.password
+        if p.private_key:
+            entry["private-key"] = p.private_key
+        if p.private_key_passphrase:
+            entry["private-key-passphrase"] = p.private_key_passphrase
+        if p.host_key:
+            entry["host-key"] = list(p.host_key)
+        if p.host_key_algorithms:
+            entry["host-key-algorithms"] = list(p.host_key_algorithms)
+    elif isinstance(p, SnellProxy):
+        entry["psk"] = p.psk
+        if p.version is not None:
+            entry["version"] = p.version
+        snell_obfs: dict[str, Any] = {}
+        if p.obfs_mode:
+            snell_obfs["mode"] = p.obfs_mode
+        if p.obfs_host:
+            snell_obfs["host"] = p.obfs_host
+        if snell_obfs:
+            entry["obfs-opts"] = snell_obfs
+        if p.udp:
+            entry["udp"] = True
+    elif isinstance(p, Hysteria1Proxy):
+        if p.tls:
+            if p.tls.server_name:
+                entry["sni"] = p.tls.server_name
+            if p.tls.insecure:
+                entry["skip-cert-verify"] = True
+            if p.tls.utls_fingerprint:
+                entry["fingerprint"] = p.tls.utls_fingerprint
+        if p.auth_str:
+            entry["auth-str"] = p.auth_str
+        if p.obfs:
+            entry["obfs"] = p.obfs
+        if p.alpn:
+            entry["alpn"] = list(p.alpn)
+        if p.protocol:
+            entry["protocol"] = p.protocol
+        if p.up_mbps is not None:
+            entry["up"] = p.up_mbps
+        if p.down_mbps is not None:
+            entry["down"] = p.down_mbps
+        if p.fast_open:
+            entry["fast-open"] = True
+    elif isinstance(p, AnyTlsProxy):
+        entry["password"] = p.password
+        if p.tls:
+            if p.tls.server_name:
+                entry["sni"] = p.tls.server_name
+            if p.tls.insecure:
+                entry["skip-cert-verify"] = True
+            if p.tls.alpn:
+                entry["alpn"] = list(p.tls.alpn)
+            if p.tls.utls_fingerprint:
+                entry["client-fingerprint"] = p.tls.utls_fingerprint
+        if p.udp:
+            entry["udp"] = True
+        if p.idle_session_check_interval is not None:
+            entry["idle-session-check-interval"] = p.idle_session_check_interval
+        if p.idle_session_timeout is not None:
+            entry["idle-session-timeout"] = p.idle_session_timeout
+        if p.min_idle_session is not None:
+            entry["min-idle-session"] = p.min_idle_session
+    elif isinstance(p, MieruProxy):
+        if p.port:
+            entry["port"] = p.port
+        if p.port_range:
+            entry["port-range"] = p.port_range
+        entry["transport"] = p.mieru_transport
+        entry["username"] = p.username
+        entry["password"] = p.password
+        if p.multiplexing:
+            entry["multiplexing"] = p.multiplexing
+        if p.traffic_pattern is not None:
+            entry["traffic-pattern"] = p.traffic_pattern
     elif p.type not in KNOWN_PROXY_TYPES:
         return None
 

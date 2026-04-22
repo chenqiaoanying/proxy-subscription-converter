@@ -12,13 +12,19 @@ from src.app.formats.common import (
     sing_box_transport_to,
 )
 from src.app.formats.model import (
+    AnyTlsProxy,
     BaseProxy,
+    Hysteria1Proxy,
     Hysteria2Proxy,
     HttpProxy,
     KNOWN_PROXY_TYPES,
+    MieruProxy,
     Proxy,
     ProxyGroup,
     ShadowsocksProxy,
+    ShadowsocksRProxy,
+    SnellProxy,
+    SshProxy,
     SocksProxy,
     TrojanProxy,
     TuicProxy,
@@ -32,6 +38,18 @@ from src.app.formats.model import (
 
 FORMAT_NAME = "sing-box"
 RESPONSE_MEDIA_TYPE = "application/json"
+
+
+def _parse_duration_s(v: Any) -> int | None:
+    """Parse a sing-box duration string like '30s' -> 30 (seconds)."""
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str) and v.endswith("s"):
+        try:
+            return int(v[:-1])
+        except ValueError:
+            pass
+    return None
 
 
 _URLTEST_FIELDS_SB = (
@@ -134,6 +152,33 @@ def _proxy_from_entry(entry: dict[str, Any]) -> Proxy | None:
                 username=entry.get("username"),
                 password=entry.get("password"),
                 version=str(entry.get("version", "5")),
+            )
+        if kind == "ssh":
+            return SshProxy(
+                **common,
+                username=entry.get("user"),
+                password=entry.get("password"),
+                private_key=entry.get("private_key"),
+                private_key_passphrase=entry.get("private_key_passphrase"),
+                host_key=entry.get("host_key"),
+                host_key_algorithms=entry.get("host_key_algorithms"),
+            )
+        if kind == "hysteria":
+            return Hysteria1Proxy(
+                **common,
+                auth_str=entry.get("auth_str"),
+                obfs=entry.get("obfs"),
+                protocol=entry.get("protocol"),
+                up_mbps=entry.get("up_mbps"),
+                down_mbps=entry.get("down_mbps"),
+            )
+        if kind == "anytls":
+            return AnyTlsProxy(
+                **common,
+                password=entry.get("password", ""),
+                idle_session_check_interval=_parse_duration_s(entry.get("idle_session_check_interval")),
+                idle_session_timeout=_parse_duration_s(entry.get("idle_session_timeout")),
+                min_idle_session=entry.get("min_idle_session"),
             )
     except Exception:
         pass
@@ -254,6 +299,40 @@ def _proxy_to_entry(p: Proxy) -> dict[str, Any] | None:
         if p.password:
             base["password"] = p.password
         base["version"] = p.version
+    elif isinstance(p, (ShadowsocksRProxy, SnellProxy, MieruProxy)):
+        return None
+    elif isinstance(p, AnyTlsProxy):
+        base["password"] = p.password
+        if p.idle_session_check_interval is not None:
+            base["idle_session_check_interval"] = f"{p.idle_session_check_interval}s"
+        if p.idle_session_timeout is not None:
+            base["idle_session_timeout"] = f"{p.idle_session_timeout}s"
+        if p.min_idle_session is not None:
+            base["min_idle_session"] = p.min_idle_session
+    elif isinstance(p, SshProxy):
+        if p.username:
+            base["user"] = p.username
+        if p.password:
+            base["password"] = p.password
+        if p.private_key:
+            base["private_key"] = p.private_key
+        if p.private_key_passphrase:
+            base["private_key_passphrase"] = p.private_key_passphrase
+        if p.host_key:
+            base["host_key"] = list(p.host_key)
+        if p.host_key_algorithms:
+            base["host_key_algorithms"] = list(p.host_key_algorithms)
+    elif isinstance(p, Hysteria1Proxy):
+        if p.auth_str:
+            base["auth_str"] = p.auth_str
+        if p.obfs:
+            base["obfs"] = p.obfs
+        if p.protocol:
+            base["protocol"] = p.protocol
+        if p.up_mbps is not None:
+            base["up_mbps"] = p.up_mbps
+        if p.down_mbps is not None:
+            base["down_mbps"] = p.down_mbps
     elif p.type not in KNOWN_PROXY_TYPES:
         return None
 
