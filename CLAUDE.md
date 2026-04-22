@@ -238,7 +238,7 @@ Generate flow (shared):
 
 Users can run this app without a database. The recommended flow:
 1. Build config in the UI editor (Subscriptions, Groups, Template tabs)
-2. Go to the **Generate** tab → **Export Config** to download `proxy-subscribe-config.yaml`
+2. Go to the **Generate** tab → **Export Config** to download `proxy-subscription-config.yaml`
 3. Upload that file to GitHub Gist or S3 and copy the raw URL
 4. Paste the URL in the **Stateless Generate URL** section → copy the resulting `?url=&format=` link
 5. Use that link as a remote profile in sing-box or Clash — no account or server state needed

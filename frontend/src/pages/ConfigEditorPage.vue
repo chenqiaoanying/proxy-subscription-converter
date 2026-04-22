@@ -185,7 +185,7 @@ async function handlePreview() {
 function handleExportConfig() {
   downloadText(
     YAML.stringify(configData.value),
-    'proxy-subscribe-config.yaml',
+    'proxy-subscription-config.yaml',
     'application/yaml',
   )
   dirty.value = false
