@@ -1,18 +1,18 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Import models so Base.metadata is populated
-from backend.src.app.models import Base  # noqa: F401
+# Import settings first so .env is loaded via pydantic-settings
+from src.app.database import settings
+from src.app.models import Base  # noqa: F401
 
 config = context.config
 fileConfig(config.config_file_name)  # type: ignore[arg-type]
 
 target_metadata = Base.metadata
 
-database_url = os.environ.get("DATABASE_URL")
+database_url = settings.database_url
 if not database_url:
     print("WARNING: DATABASE_URL not set — skipping migrations")
 elif database_url.startswith("sqlite"):
@@ -20,8 +20,13 @@ elif database_url.startswith("sqlite"):
     print("INFO: SQLite detected — skipping Alembic migrations (use init_db instead)")
     database_url = None
 else:
-    # PostgreSQL: swap asyncpg driver for sync psycopg used by Alembic
-    database_url = database_url.replace("+asyncpg", "+psycopg")
+    # PostgreSQL: force sync psycopg driver for Alembic (async driver is for app runtime)
+    if database_url.startswith("postgresql+asyncpg://"):
+        database_url = database_url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
     config.set_main_option("sqlalchemy.url", database_url)
 
 
