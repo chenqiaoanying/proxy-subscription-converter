@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { SpeedInsights } from '@vercel/speed-insights/vue'
 import ConfigListPage from '@/pages/ConfigListPage.vue'
 import ConfigEditorPage from '@/pages/ConfigEditorPage.vue'
 
@@ -20,6 +21,7 @@ function closeEditor() {
 </script>
 
 <template>
+  <SpeedInsights />
   <el-container style="height: 100vh">
     <el-header style="display: flex; align-items: center; background: #1d2939; padding: 0 24px">
       <span style="color: #fff; font-size: 18px; font-weight: 600">Proxy Subscription Converter</span>
