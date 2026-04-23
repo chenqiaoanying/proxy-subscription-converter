@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import YAML from 'yaml'
 import { useConfigStore } from '@/stores/configs'
 import {
@@ -19,9 +20,10 @@ import MonacoEditor from '@/components/MonacoEditor.vue'
 const props = defineProps<{ configId: string | null }>()
 const emit = defineEmits<{ close: [] }>()
 
+const { t } = useI18n()
 const store = useConfigStore()
 const localConfigId = ref<string | null>(props.configId)
-const configName = ref('New Config')
+const configName = ref(t('editor.defaultName'))
 const configData = ref<ConfigData>(emptyConfigData())
 const activeTab = ref('subscriptions')
 const saving = ref(false)
@@ -103,17 +105,17 @@ function downloadText(text: string, filename: string, mediaType: string) {
 
 function notifyDropped(n: number) {
   if (n > 0) {
-    ElMessage.warning(`${n} proxies dropped (protocol not supported in target format)`)
+    ElMessage.warning(t('editor.messages.dropped', { n }))
   }
 }
 
 async function handleBack() {
   if (dirty.value) {
     try {
-      await ElMessageBox.confirm('You have unsaved changes. Discard and go back?', 'Unsaved changes', {
+      await ElMessageBox.confirm(t('editor.unsaved.message'), t('editor.unsaved.title'), {
         type: 'warning',
-        confirmButtonText: 'Discard',
-        cancelButtonText: 'Stay',
+        confirmButtonText: t('editor.unsaved.discard'),
+        cancelButtonText: t('editor.unsaved.stay'),
       })
     } catch {
       return
@@ -127,19 +129,19 @@ async function handleSave() {
   try {
     if (localConfigId.value) {
       await store.update(localConfigId.value, configName.value, configData.value)
-      ElMessage.success('Saved')
+      ElMessage.success(t('editor.messages.saved'))
     } else {
       const created = await store.create(configName.value, configData.value)
       localConfigId.value = created.id
-      ElMessage.success('Config saved to server')
+      ElMessage.success(t('editor.messages.createdOnServer'))
     }
     dirty.value = false
   } catch (e) {
     const msg = String(e)
     if (msg.includes('503') || msg.includes('Network') || msg.includes('database')) {
-      ElMessage.error('Database not configured. Use Export to save your config as a file.')
+      ElMessage.error(t('editor.messages.dbNotConfigured'))
     } else {
-      ElMessage.error('Save failed: ' + msg)
+      ElMessage.error(t('editor.messages.saveFailed', { reason: msg }))
     }
   } finally {
     saving.value = false
@@ -153,7 +155,7 @@ async function handleGenerate() {
     downloadText(result.body, generateFileName.value, result.mediaType)
     notifyDropped(result.dropped)
   } catch (e) {
-    ElMessage.error('Generate failed: ' + String(e))
+    ElMessage.error(t('editor.messages.generateFailed', { reason: String(e) }))
   } finally {
     generating.value = false
   }
@@ -176,7 +178,7 @@ async function handlePreview() {
     previewDropped.value = result.dropped
     previewVisible.value = true
   } catch (e) {
-    ElMessage.error('Generate failed: ' + String(e))
+    ElMessage.error(t('editor.messages.generateFailed', { reason: String(e) }))
   } finally {
     generating.value = false
   }
@@ -208,9 +210,9 @@ function handleImportConfig() {
         configData.value = parsed
         nextTick(() => { skipDirtyWatch = false })
         dirty.value = true
-        ElMessage.success('Config imported')
+        ElMessage.success(t('editor.messages.imported'))
       } catch {
-        ElMessage.error('Invalid config file')
+        ElMessage.error(t('editor.messages.invalidFile'))
       }
     }
     reader.readAsText(file)
@@ -220,7 +222,7 @@ function handleImportConfig() {
 
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
-  ElMessage.success('Copied')
+  ElMessage.success(t('editor.messages.copied'))
 }
 </script>
 
@@ -230,53 +232,53 @@ function copyToClipboard(text: string) {
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
       <el-button @click="handleBack">
         <el-icon><ArrowLeft /></el-icon>
-        Back
+        {{ t('editor.back') }}
       </el-button>
-      <el-input v-model="configName" style="max-width: 320px" placeholder="Config name" />
+      <el-input v-model="configName" style="max-width: 320px" :placeholder="t('editor.namePlaceholder')" />
       <el-button @click="handleImportConfig">
         <el-icon><Upload /></el-icon>
-        Import
+        {{ t('editor.import') }}
       </el-button>
       <el-button @click="handleExportConfig">
         <el-icon><Download /></el-icon>
-        Export
+        {{ t('editor.export') }}
       </el-button>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
-        Save
+        {{ t('editor.save') }}
       </el-button>
     </div>
 
     <!-- Tabs -->
     <el-tabs v-model="activeTab" v-loading="loading" style="flex: 1; overflow: hidden">
-      <el-tab-pane label="Subscriptions" name="subscriptions">
+      <el-tab-pane :label="t('editor.tabs.subscriptions')" name="subscriptions">
         <SubscriptionsPanel v-model="configData.subscriber.subscriptions" />
       </el-tab-pane>
-      <el-tab-pane label="Groups" name="groups">
+      <el-tab-pane :label="t('editor.tabs.groups')" name="groups">
         <GroupsPanel
           v-model="configData.subscriber.groups"
           :subscription-names="Object.keys(configData.subscriber.subscriptions)"
         />
       </el-tab-pane>
-      <el-tab-pane label="Template" name="template">
+      <el-tab-pane :label="t('editor.tabs.template')" name="template">
         <!-- Skip render until the async fetchOne has populated configData,
              so TemplatePanel seeds its local states from real data. -->
         <TemplatePanel v-if="!loading" v-model="configData.config_template" />
       </el-tab-pane>
-      <el-tab-pane label="Generate" name="generate">
+      <el-tab-pane :label="t('editor.tabs.generate')" name="generate">
         <div style="padding: 8px 0 24px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; max-height: 100%">
 
           <!-- No templates warning -->
           <el-alert
             v-if="availableFormats.length === 0"
-            title="No templates configured"
+            :title="t('editor.generate.noTemplatesTitle')"
             type="warning"
             :closable="false"
             show-icon
           >
             <template #default>
-              Go to the <el-link type="warning" @click="activeTab = 'template'" style="vertical-align: baseline">Template tab</el-link>
-              and add a sing-box or Clash template to enable generation.
+              <el-link type="warning" @click="activeTab = 'template'" style="vertical-align: baseline">{{ t('editor.generate.goToTemplateTab') }}</el-link>
+              {{ t('editor.generate.goToTemplateHint') }}
             </template>
           </el-alert>
 
@@ -285,12 +287,12 @@ function copyToClipboard(text: string) {
             <template #header>
               <div style="display: flex; align-items: center; gap: 8px">
                 <el-icon style="color: var(--el-color-primary)"><Download /></el-icon>
-                <span style="font-weight: 600">Generate &amp; Download</span>
+                <span style="font-weight: 600">{{ t('editor.generate.downloadHeader') }}</span>
               </div>
             </template>
 
             <div v-if="availableFormats.length === 0" style="color: var(--el-text-color-secondary); font-size: 13px">
-              Configure a template first to enable generation.
+              {{ t('editor.generate.downloadEmpty') }}
             </div>
             <template v-else>
               <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
@@ -316,7 +318,7 @@ function copyToClipboard(text: string) {
                     @click="targetFormat = fmt; handlePreview()"
                   >
                     <el-icon><View /></el-icon>
-                    Preview
+                    {{ t('editor.generate.preview') }}
                   </el-button>
                   <el-button
                     type="primary"
@@ -325,7 +327,7 @@ function copyToClipboard(text: string) {
                     @click="targetFormat = fmt; handleGenerate()"
                   >
                     <el-icon><Download /></el-icon>
-                    Download
+                    {{ t('editor.generate.download') }}
                   </el-button>
                 </div>
               </div>
@@ -337,34 +339,34 @@ function copyToClipboard(text: string) {
             <template #header>
               <div style="display: flex; align-items: center; gap: 8px">
                 <el-icon style="color: var(--el-color-warning)"><DataBoard /></el-icon>
-                <span style="font-weight: 600">Stateful Generate URL</span>
+                <span style="font-weight: 600">{{ t('editor.generate.statefulHeader') }}</span>
               </div>
             </template>
 
             <el-text type="info" size="small">
-              Use this URL when your config is saved on this server. It always reflects the latest saved version — no re-upload needed.
+              {{ t('editor.generate.statefulIntro') }}
             </el-text>
 
             <div style="margin-top: 16px">
               <template v-if="!localConfigId">
                 <el-alert type="warning" :closable="false" show-icon style="border-radius: 6px">
                   <template #default>
-                    Config not saved yet.
-                    <el-link type="warning" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">Save now</el-link>
-                    to get a permanent URL.
+                    {{ t('editor.generate.notSavedYet') }}
+                    <el-link type="warning" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">{{ t('editor.generate.saveNow') }}</el-link>
+                    {{ t('editor.generate.savePermanent') }}
                   </template>
                 </el-alert>
               </template>
               <template v-else>
                 <el-alert v-if="dirty" type="info" :closable="false" show-icon style="border-radius: 6px; margin-bottom: 12px">
                   <template #default>
-                    You have unsaved changes. URLs below point to the last saved version.
-                    <el-link type="primary" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">Save now</el-link>
-                    to update them.
+                    {{ t('editor.generate.dirtyNote') }}
+                    <el-link type="primary" @click="handleSave" style="vertical-align: baseline; margin-left: 2px">{{ t('editor.generate.saveNow') }}</el-link>
+                    {{ t('editor.generate.saveToUpdate') }}
                   </template>
                 </el-alert>
                 <el-text v-if="availableFormats.length === 0" type="info" size="small">
-                  No templates configured. Add a template in the Template tab first.
+                  {{ t('editor.generate.noTemplatesHint') }}
                 </el-text>
                 <div v-else style="display: flex; flex-direction: column; gap: 10px">
                   <div
@@ -374,7 +376,7 @@ function copyToClipboard(text: string) {
                   >
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
                       <el-tag :type="fmt === 'clash' ? 'success' : 'primary'" effect="dark" size="small">{{ fmt }}</el-tag>
-                      <el-text type="info" size="small">— use as remote profile in {{ fmt === 'clash' ? 'Mihomo / Clash' : 'sing-box' }}</el-text>
+                      <el-text type="info" size="small">{{ fmt === 'clash' ? t('editor.generate.useAsProfileClash') : t('editor.generate.useAsProfileSingbox') }}</el-text>
                     </div>
                     <el-input :model-value="statefulGenerateUrls[fmt] ?? ''" readonly size="small">
                       <template #append>
@@ -394,13 +396,12 @@ function copyToClipboard(text: string) {
             <template #header>
               <div style="display: flex; align-items: center; gap: 8px">
                 <el-icon style="color: var(--el-color-success)"><Link /></el-icon>
-                <span style="font-weight: 600">Stateless Generate URL</span>
+                <span style="font-weight: 600">{{ t('editor.generate.statelessHeader') }}</span>
               </div>
             </template>
 
             <el-text type="info" size="small">
-              Host your config on GitHub Gist or S3 — no account on this server needed.
-              Share the URL as a permanent remote profile.
+              {{ t('editor.generate.statelessIntro') }}
             </el-text>
 
             <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px">
@@ -413,13 +414,13 @@ function copyToClipboard(text: string) {
                   font-size: 13px; font-weight: 600; margin-top: 2px;
                 ">1</div>
                 <div style="flex: 1">
-                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Export your config</div>
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">{{ t('editor.generate.stepExport') }}</div>
                   <div style="display: flex; align-items: center; gap: 12px">
                     <el-button size="small" @click="handleExportConfig">
                       <el-icon><Download /></el-icon>
-                      Export Config
+                      {{ t('editor.generate.stepExportButton') }}
                     </el-button>
-                    <el-text type="info" size="small">Then upload to GitHub Gist or S3 and copy the raw URL.</el-text>
+                    <el-text type="info" size="small">{{ t('editor.generate.stepExportHint') }}</el-text>
                   </div>
                 </div>
               </div>
@@ -435,10 +436,10 @@ function copyToClipboard(text: string) {
                   font-size: 13px; font-weight: 600; margin-top: 2px;
                 ">2</div>
                 <div style="flex: 1">
-                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Paste your raw config URL</div>
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">{{ t('editor.generate.stepPaste') }}</div>
                   <el-input
                     v-model="configUrl"
-                    placeholder="https://gist.githubusercontent.com/user/abc123/raw/config.yaml"
+                    :placeholder="t('editor.generate.stepPastePlaceholder')"
                     clearable
                     :prefix-icon="Link"
                   />
@@ -456,10 +457,10 @@ function copyToClipboard(text: string) {
                   font-size: 13px; font-weight: 600; margin-top: 2px;
                 ">3</div>
                 <div style="flex: 1">
-                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">Share your generate URLs</div>
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px">{{ t('editor.generate.stepShare') }}</div>
 
                   <el-text v-if="availableFormats.length === 0" type="info" size="small">
-                    No templates configured. Add a template in the Template tab first.
+                    {{ t('editor.generate.noTemplatesHint') }}
                   </el-text>
                   <div v-else style="display: flex; flex-direction: column; gap: 10px">
                     <div
@@ -475,13 +476,13 @@ function copyToClipboard(text: string) {
                       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
                         <el-tag :type="fmt === 'clash' ? 'success' : 'primary'" effect="dark" size="small">{{ fmt }}</el-tag>
                         <el-text type="info" size="small">
-                          — use as remote profile in {{ fmt === 'clash' ? 'Mihomo / Clash' : 'sing-box' }}
+                          {{ fmt === 'clash' ? t('editor.generate.useAsProfileClash') : t('editor.generate.useAsProfileSingbox') }}
                         </el-text>
                       </div>
                       <el-input
                         :model-value="statelessGenerateUrls[fmt] ?? ''"
                         readonly
-                        :placeholder="configUrl ? 'Building URL…' : 'Paste config URL in step 2'"
+                        :placeholder="configUrl ? t('editor.generate.urlBuilding') : t('editor.generate.urlPlaceholder')"
                         size="small"
                       >
                         <template #append>
@@ -507,14 +508,14 @@ function copyToClipboard(text: string) {
     <!-- Preview dialog -->
     <el-dialog
       v-model="previewVisible"
-      :title="`Generated ${targetFormat} Config`"
+      :title="t('editor.preview.title', { format: targetFormat })"
       width="80%"
       top="5vh"
       destroy-on-close
     >
       <el-alert
         v-if="previewDropped > 0"
-        :title="`${previewDropped} proxies were dropped (protocol not supported in ${targetFormat})`"
+        :title="t('editor.preview.dropped', { n: previewDropped, format: targetFormat })"
         type="warning"
         :closable="false"
         style="margin-bottom: 12px"

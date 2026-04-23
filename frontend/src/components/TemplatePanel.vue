@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import YAML from 'yaml'
 import MonacoEditor from './MonacoEditor.vue'
 import * as monaco from 'monaco-editor'
@@ -10,6 +11,8 @@ import {
   type TargetFormat,
   type TemplateSource,
 } from '@/types'
+
+const { t } = useI18n()
 
 const model = defineModel<ConfigTemplateMap>({ required: true })
 
@@ -169,26 +172,25 @@ function onEditorMount(): void {
         </el-radio-button>
       </el-radio-group>
       <el-radio-group v-model="state.mode" @update:model-value="commitFromState">
-        <el-radio-button value="none">None</el-radio-button>
-        <el-radio-button value="url">URL</el-radio-button>
-        <el-radio-button value="object">Inline object</el-radio-button>
-        <el-radio-button value="inline">Inline text</el-radio-button>
+        <el-radio-button value="none">{{ t('template.modeNone') }}</el-radio-button>
+        <el-radio-button value="url">{{ t('template.modeUrl') }}</el-radio-button>
+        <el-radio-button value="object">{{ t('template.modeObject') }}</el-radio-button>
+        <el-radio-button value="inline">{{ t('template.modeInline') }}</el-radio-button>
       </el-radio-group>
     </div>
 
     <template v-if="state.mode === 'none'">
       <el-text type="info" size="small">
-        No template for <strong>{{ activeFormat }}</strong>. This format will be unavailable in the Generate tab.
+        {{ t('template.emptyHint', { format: activeFormat }) }}
       </el-text>
     </template>
 
     <template v-else-if="state.mode === 'url'">
       <el-input v-model="state.url" @update:model-value="commitFromState" :placeholder="activeFormat === 'clash'
-        ? 'https://example.com/clash-template.yaml'
-        : 'https://example.com/sing-box-template.json'" />
+        ? t('template.urlPlaceholderClash')
+        : t('template.urlPlaceholderSingbox')" />
       <el-text type="info" size="small">
-        The {{ activeFormat }} template will be fetched from this URL each time the
-        generate endpoint is called with <code>?format={{ activeFormat }}</code>.
+        {{ t('template.urlHint', { format: activeFormat }) }}
       </el-text>
     </template>
 
@@ -196,13 +198,10 @@ function onEditorMount(): void {
       <el-alert v-if="state.bodyError" :title="state.bodyError" type="error" :closable="false" />
       <el-text type="info" size="small">
         <template v-if="state.mode === 'object'">
-          Parsed as a {{ editorLanguage.toUpperCase() }} object and stored as structured data
-          (normalised on save — comments and key ordering are not preserved).
+          {{ t('template.objectHint', { lang: editorLanguage.toUpperCase() }) }}
         </template>
         <template v-else>
-          Stored verbatim as raw text — preserves comments and formatting. The backend parses
-          the text with YAML (which also accepts JSON). Use this for templates in any format
-          where byte-for-byte fidelity matters.
+          {{ t('template.inlineHint') }}
         </template>
       </el-text>
       <MonacoEditor v-model="state.body" @update:model-value="commitFromState" :language="editorLanguage"

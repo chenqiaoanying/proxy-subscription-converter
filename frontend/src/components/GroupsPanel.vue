@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   type AutoRegionGroupConfig,
   type GroupConfig,
@@ -12,6 +13,8 @@ import {
 import { useConfigStore } from '@/stores/configs'
 import { computeGroupProxies, computeRegionBreakdown } from '@/composables/useProxyPreview'
 import AutoRegionSettingsForm from './AutoRegionSettingsForm.vue'
+
+const { t } = useI18n()
 
 const model = defineModel<GroupConfig[]>({ required: true })
 const props = defineProps<{ subscriptionNames: string[] }>()
@@ -248,37 +251,37 @@ function describeRule(rule: MatchRule | null | undefined): string {
     <div style="margin-bottom: 12px">
       <el-button type="primary" size="small" @click="openAdd">
         <el-icon><Plus /></el-icon>
-        Add Group
+        {{ t('groups.addGroup') }}
       </el-button>
     </div>
 
     <el-table :data="tableData" border row-key="_id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }">
-      <el-table-column label="Tag" min-width="180" show-overflow-tooltip>
+      <el-table-column :label="t('groups.tag')" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">{{ row.tag }}</template>
       </el-table-column>
-      <el-table-column label="Type" width="120">
+      <el-table-column :label="t('groups.type')" width="120">
         <template #default="{ row }">
           <el-tag :type="row.type === 'auto_region' ? 'warning' : 'info'" size="small">
             {{ row.type }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Import" width="140">
+      <el-table-column :label="t('groups.import')" width="140">
         <template #default="{ row }">
-          <span v-if="!row._isChild">{{ row.imports.length ? row.imports.join(', ') : 'All' }}</span>
+          <span v-if="!row._isChild">{{ row.imports.length ? row.imports.join(', ') : t('groups.allSubscriptions') }}</span>
           <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Proxies" width="80">
+      <el-table-column :label="t('groups.proxies')" width="80">
         <template #default="{ row }">{{ row.proxyCount ?? '—' }}</template>
       </el-table-column>
-      <el-table-column label="Include" min-width="160">
+      <el-table-column :label="t('groups.include')" min-width="160">
         <template #default="{ row }">{{ row._isChild ? '—' : describeRule(row.include) }}</template>
       </el-table-column>
-      <el-table-column label="Exclude" min-width="160">
+      <el-table-column :label="t('groups.exclude')" min-width="160">
         <template #default="{ row }">{{ row._isChild ? '—' : describeRule(row.exclude) }}</template>
       </el-table-column>
-      <el-table-column label="Actions" width="180" fixed="right">
+      <el-table-column :label="t('common.actions')" width="180" fixed="right">
         <template #default="{ row }">
           <div v-if="!row._isChild" style="white-space: nowrap">
             <el-button-group>
@@ -302,11 +305,11 @@ function describeRule(rule: MatchRule | null | undefined): string {
 
     <el-dialog
       v-model="showDialog"
-      :title="editingIndex !== null ? 'Edit Group' : 'Add Group'"
+      :title="editingIndex !== null ? t('groups.editDialogTitle') : t('groups.addDialogTitle')"
       width="580px"
     >
       <el-form label-width="130px">
-        <el-form-item label="Type" required>
+        <el-form-item :label="t('groups.type')" required>
           <el-radio-group v-model="formType">
             <el-radio value="selector">selector</el-radio>
             <el-radio value="urltest">urltest</el-radio>
@@ -314,33 +317,33 @@ function describeRule(rule: MatchRule | null | undefined): string {
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="!isAutoRegion" label="Tag" required>
-          <el-input v-model="formTag" placeholder="group_tag" />
+        <el-form-item v-if="!isAutoRegion" :label="t('groups.tag')" required>
+          <el-input v-model="formTag" :placeholder="t('groups.tagPlaceholder')" />
         </el-form-item>
 
         <template v-if="isAutoRegion">
-          <el-form-item label="Parent tag" required>
-            <el-input v-model="formGroupTag" placeholder="My Proxies" />
+          <el-form-item :label="t('groups.parentTag')" required>
+            <el-input v-model="formGroupTag" :placeholder="t('groups.parentTagPlaceholder')" />
           </el-form-item>
-          <el-form-item label="Sub-group tag" required>
-            <el-input v-model="formSubGroupTag" placeholder="{region} Nodes" />
+          <el-form-item :label="t('groups.subGroupTag')" required>
+            <el-input v-model="formSubGroupTag" :placeholder="t('groups.subGroupTagPlaceholder', { regionToken: '{region}' })" />
             <el-text v-if="tagMissingPlaceholder" type="danger" size="small">
-              Tag must contain <code>{region}</code>
+              {{ t('groups.subGroupTagMustContain') }} <code>{region}</code>
             </el-text>
           </el-form-item>
         </template>
 
-        <el-form-item label="Import">
+        <el-form-item :label="t('groups.import')">
           <el-select
             v-model="formImports"
             multiple
-            placeholder="All subscriptions (empty = all)"
+            :placeholder="t('groups.importPlaceholder')"
             style="width: 100%"
           >
-            <el-option-group v-if="props.subscriptionNames.length" label="Subscriptions">
+            <el-option-group v-if="props.subscriptionNames.length" :label="t('groups.importSubscriptions')">
               <el-option v-for="name in props.subscriptionNames" :key="name" :label="name" :value="name" />
             </el-option-group>
-            <el-option-group v-if="otherGroupTags.length" label="Groups">
+            <el-option-group v-if="otherGroupTags.length" :label="t('groups.importGroups')">
               <el-option v-for="name in otherGroupTags" :key="name" :label="name" :value="name" />
             </el-option-group>
           </el-select>
@@ -360,108 +363,108 @@ function describeRule(rule: MatchRule | null | undefined): string {
         />
 
         <template v-if="!isAutoRegion && formType === 'urltest'">
-          <el-divider>URL Test Options</el-divider>
-          <el-form-item label="URL">
-            <el-input v-model="formUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          <el-divider>{{ t('groups.urlTestOptions') }}</el-divider>
+          <el-form-item :label="t('groups.urlTestUrl')">
+            <el-input v-model="formUrltestOptions.url" :placeholder="t('groups.urlTestUrlPlaceholder')" clearable />
           </el-form-item>
-          <el-form-item label="Interval">
-            <el-input v-model="formUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.interval')">
+            <el-input v-model="formUrltestOptions.interval" :placeholder="t('groups.intervalPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
-          <el-form-item label="Tolerance (ms)">
-            <el-input-number v-model="formUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          <el-form-item :label="t('groups.tolerance')">
+            <el-input-number v-model="formUrltestOptions.tolerance" :min="0" :controls="false" :placeholder="t('groups.tolerancePlaceholder')" style="width: 120px" />
           </el-form-item>
-          <el-form-item label="Idle Timeout">
-            <el-input v-model="formUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.idleTimeout')">
+            <el-input v-model="formUrltestOptions.idle_timeout" :placeholder="t('groups.idleTimeoutPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
           <el-form-item label="">
-            <el-checkbox v-model="formUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+            <el-checkbox v-model="formUrltestOptions.interrupt_exist_connections">{{ t('groups.interrupt') }}</el-checkbox>
           </el-form-item>
         </template>
 
         <template v-if="isAutoRegion && formGroupType === 'urltest'">
-          <el-divider>Group URL Test Options</el-divider>
-          <el-form-item label="URL">
-            <el-input v-model="formGroupUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          <el-divider>{{ t('groups.groupUrlTestOptions') }}</el-divider>
+          <el-form-item :label="t('groups.urlTestUrl')">
+            <el-input v-model="formGroupUrltestOptions.url" :placeholder="t('groups.urlTestUrlPlaceholder')" clearable />
           </el-form-item>
-          <el-form-item label="Interval">
-            <el-input v-model="formGroupUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.interval')">
+            <el-input v-model="formGroupUrltestOptions.interval" :placeholder="t('groups.intervalPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
-          <el-form-item label="Tolerance (ms)">
-            <el-input-number v-model="formGroupUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          <el-form-item :label="t('groups.tolerance')">
+            <el-input-number v-model="formGroupUrltestOptions.tolerance" :min="0" :controls="false" :placeholder="t('groups.tolerancePlaceholder')" style="width: 120px" />
           </el-form-item>
-          <el-form-item label="Idle Timeout">
-            <el-input v-model="formGroupUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.idleTimeout')">
+            <el-input v-model="formGroupUrltestOptions.idle_timeout" :placeholder="t('groups.idleTimeoutPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
           <el-form-item label="">
-            <el-checkbox v-model="formGroupUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+            <el-checkbox v-model="formGroupUrltestOptions.interrupt_exist_connections">{{ t('groups.interrupt') }}</el-checkbox>
           </el-form-item>
         </template>
 
         <template v-if="isAutoRegion && formSubGroupType === 'urltest'">
-          <el-divider>Sub-Group URL Test Options</el-divider>
-          <el-form-item label="URL">
-            <el-input v-model="formSubGroupUrltestOptions.url" placeholder="https://www.gstatic.com/generate_204" clearable />
+          <el-divider>{{ t('groups.subGroupUrlTestOptions') }}</el-divider>
+          <el-form-item :label="t('groups.urlTestUrl')">
+            <el-input v-model="formSubGroupUrltestOptions.url" :placeholder="t('groups.urlTestUrlPlaceholder')" clearable />
           </el-form-item>
-          <el-form-item label="Interval">
-            <el-input v-model="formSubGroupUrltestOptions.interval" placeholder="3m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.interval')">
+            <el-input v-model="formSubGroupUrltestOptions.interval" :placeholder="t('groups.intervalPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
-          <el-form-item label="Tolerance (ms)">
-            <el-input-number v-model="formSubGroupUrltestOptions.tolerance" :min="0" :controls="false" placeholder="50" style="width: 120px" />
+          <el-form-item :label="t('groups.tolerance')">
+            <el-input-number v-model="formSubGroupUrltestOptions.tolerance" :min="0" :controls="false" :placeholder="t('groups.tolerancePlaceholder')" style="width: 120px" />
           </el-form-item>
-          <el-form-item label="Idle Timeout">
-            <el-input v-model="formSubGroupUrltestOptions.idle_timeout" placeholder="30m" style="width: 160px" clearable />
+          <el-form-item :label="t('groups.idleTimeout')">
+            <el-input v-model="formSubGroupUrltestOptions.idle_timeout" :placeholder="t('groups.idleTimeoutPlaceholder')" style="width: 160px" clearable />
           </el-form-item>
           <el-form-item label="">
-            <el-checkbox v-model="formSubGroupUrltestOptions.interrupt_exist_connections">Interrupt existing connections</el-checkbox>
+            <el-checkbox v-model="formSubGroupUrltestOptions.interrupt_exist_connections">{{ t('groups.interrupt') }}</el-checkbox>
           </el-form-item>
         </template>
 
-        <el-divider>Include Rule</el-divider>
+        <el-divider>{{ t('groups.includeRule') }}</el-divider>
         <template v-if="formInclude">
-          <el-form-item label="Pattern">
-            <el-input v-model="formInclude.pattern" placeholder="e.g. HK|Hong Kong" clearable />
+          <el-form-item :label="t('groups.pattern')">
+            <el-input v-model="formInclude.pattern" :placeholder="t('groups.includePatternPlaceholder')" clearable />
           </el-form-item>
-          <el-form-item label="Proxy Types">
-            <el-select v-model="formInclude.proxy_type" multiple placeholder="Any type" style="width: 100%">
-              <el-option v-for="t in PROXY_TYPES" :key="t" :label="t" :value="t" />
+          <el-form-item :label="t('groups.proxyTypes')">
+            <el-select v-model="formInclude.proxy_type" multiple :placeholder="t('groups.anyType')" style="width: 100%">
+              <el-option v-for="pt in PROXY_TYPES" :key="pt" :label="pt" :value="pt" />
             </el-select>
           </el-form-item>
           <el-form-item label="">
-            <el-checkbox v-model="formInclude.regex">Regex</el-checkbox>
-            <el-checkbox v-model="formInclude.match_case" style="margin-left: 12px">Match Case</el-checkbox>
-            <el-checkbox v-model="formInclude.match_whole_word" style="margin-left: 12px">Whole Word</el-checkbox>
-            <el-button size="small" type="danger" style="margin-left: 12px" @click="clearInclude">Remove</el-button>
+            <el-checkbox v-model="formInclude.regex">{{ t('groups.regex') }}</el-checkbox>
+            <el-checkbox v-model="formInclude.match_case" style="margin-left: 12px">{{ t('groups.matchCase') }}</el-checkbox>
+            <el-checkbox v-model="formInclude.match_whole_word" style="margin-left: 12px">{{ t('groups.wholeWord') }}</el-checkbox>
+            <el-button size="small" type="danger" style="margin-left: 12px" @click="clearInclude">{{ t('common.remove') }}</el-button>
           </el-form-item>
         </template>
         <el-form-item v-else label="">
-          <el-button size="small" @click="ensureInclude">+ Add Include Rule</el-button>
+          <el-button size="small" @click="ensureInclude">{{ t('groups.addInclude') }}</el-button>
         </el-form-item>
 
-        <el-divider>Exclude Rule</el-divider>
+        <el-divider>{{ t('groups.excludeRule') }}</el-divider>
         <template v-if="formExclude">
-          <el-form-item label="Pattern">
-            <el-input v-model="formExclude.pattern" placeholder="e.g. TEST|EXPIRE" clearable />
+          <el-form-item :label="t('groups.pattern')">
+            <el-input v-model="formExclude.pattern" :placeholder="t('groups.excludePatternPlaceholder')" clearable />
           </el-form-item>
-          <el-form-item label="Proxy Types">
-            <el-select v-model="formExclude.proxy_type" multiple placeholder="Any type" style="width: 100%">
-              <el-option v-for="t in PROXY_TYPES" :key="t" :label="t" :value="t" />
+          <el-form-item :label="t('groups.proxyTypes')">
+            <el-select v-model="formExclude.proxy_type" multiple :placeholder="t('groups.anyType')" style="width: 100%">
+              <el-option v-for="pt in PROXY_TYPES" :key="pt" :label="pt" :value="pt" />
             </el-select>
           </el-form-item>
           <el-form-item label="">
-            <el-checkbox v-model="formExclude.regex">Regex</el-checkbox>
-            <el-checkbox v-model="formExclude.match_case" style="margin-left: 12px">Match Case</el-checkbox>
-            <el-checkbox v-model="formExclude.match_whole_word" style="margin-left: 12px">Whole Word</el-checkbox>
-            <el-button size="small" type="danger" style="margin-left: 12px" @click="clearExclude">Remove</el-button>
+            <el-checkbox v-model="formExclude.regex">{{ t('groups.regex') }}</el-checkbox>
+            <el-checkbox v-model="formExclude.match_case" style="margin-left: 12px">{{ t('groups.matchCase') }}</el-checkbox>
+            <el-checkbox v-model="formExclude.match_whole_word" style="margin-left: 12px">{{ t('groups.wholeWord') }}</el-checkbox>
+            <el-button size="small" type="danger" style="margin-left: 12px" @click="clearExclude">{{ t('common.remove') }}</el-button>
           </el-form-item>
         </template>
         <el-form-item v-else label="">
-          <el-button size="small" @click="ensureExclude">+ Add Exclude Rule</el-button>
+          <el-button size="small" @click="ensureExclude">{{ t('groups.addExclude') }}</el-button>
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="showDialog = false">Cancel</el-button>
-        <el-button type="primary" :disabled="tagMissingPlaceholder" @click="handleSave">Save</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :disabled="tagMissingPlaceholder" @click="handleSave">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

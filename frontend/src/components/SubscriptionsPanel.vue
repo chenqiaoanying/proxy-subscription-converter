@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { type SubscriptionConfig, type SubscriptionUserInfo, emptySubscription } from '@/types'
 import { useConfigStore } from '@/stores/configs'
 
 const model = defineModel<Record<string, SubscriptionConfig>>({ required: true })
 const store = useConfigStore()
+const { t } = useI18n()
 
 const showDialog = ref(false)
 const editingKey = ref<string | null>(null)
@@ -55,7 +57,7 @@ async function handleLoad(key: string, sub: SubscriptionConfig) {
   try {
     await store.previewSubscription(key, sub.url, sub.user_agent)
   } catch (e) {
-    ElMessage.error(`Failed to load "${key}": ${String(e)}`)
+    ElMessage.error(t('subs.loadFailed', { key, reason: String(e) }))
   }
 }
 
@@ -104,26 +106,26 @@ function expiryColor(expire: number): string {
     <div style="margin-bottom: 12px">
       <el-button type="primary" size="small" @click="openAdd">
         <el-icon><Plus /></el-icon>
-        Add Subscription
+        {{ t('subs.addSubscription') }}
       </el-button>
     </div>
 
     <el-table :data="entries()" border>
-      <el-table-column label="Name (Key)" width="160" show-overflow-tooltip>
+      <el-table-column :label="t('subs.nameKey')" width="160" show-overflow-tooltip>
         <template #default="{ row: [key] }">{{ key }}</template>
       </el-table-column>
-      <el-table-column label="URL" min-width="180" show-overflow-tooltip>
+      <el-table-column :label="t('subs.url')" min-width="180" show-overflow-tooltip>
         <template #default="{ row: [, s] }">{{ s.url }}</template>
       </el-table-column>
-      <el-table-column label="User-Agent" width="120" show-overflow-tooltip>
+      <el-table-column :label="t('subs.userAgent')" width="120" show-overflow-tooltip>
         <template #default="{ row: [, s] }">{{ s.user_agent ?? '—' }}</template>
       </el-table-column>
-      <el-table-column label="Enabled" width="80">
+      <el-table-column :label="t('subs.enabled')" width="80">
         <template #default="{ row: [key, s] }">
           <el-switch :model-value="s.enabled" @change="toggleEnabled(key)" />
         </template>
       </el-table-column>
-      <el-table-column label="Proxies" width="72">
+      <el-table-column :label="t('subs.proxies')" width="72">
         <template #default="{ row: [key] }">
           <span v-if="store.subscriptionPreviews[key] !== undefined">
             {{ store.subscriptionPreviews[key].length }}
@@ -131,7 +133,7 @@ function expiryColor(expire: number): string {
           <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Quota" width="190">
+      <el-table-column :label="t('subs.quota')" width="190">
         <template #default="{ row: [key] }">
           <template v-if="store.subscriptionUserInfos[key] && store.subscriptionUserInfos[key].total > 0">
             <el-progress
@@ -149,23 +151,23 @@ function expiryColor(expire: number): string {
           <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Expires" width="130">
+      <el-table-column :label="t('subs.expires')" width="130">
         <template #default="{ row: [key] }">
           <template v-if="store.subscriptionUserInfos[key]?.expire">
             <div :style="{ color: expiryColor(store.subscriptionUserInfos[key].expire!) }">
               <div>{{ formatExpiry(store.subscriptionUserInfos[key].expire!) }}</div>
-              <div class="days-left">{{ daysLeft(store.subscriptionUserInfos[key].expire!) }} days left</div>
+              <div class="days-left">{{ t('subs.daysLeft', { n: daysLeft(store.subscriptionUserInfos[key].expire!) }) }}</div>
             </div>
           </template>
           <span v-else style="color: #999">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="140" fixed="right">
+      <el-table-column :label="t('common.actions')" width="140" fixed="right">
         <template #default="{ row: [key, s] }">
           <el-button
             size="small"
             :loading="store.previewLoading[key]"
-            :title="s.user_agent ? 'Load via backend' : 'Load from browser'"
+            :title="s.user_agent ? t('subs.loadViaBackend') : t('subs.loadFromBrowser')"
             @click="handleLoad(key, s)"
           >
             <el-icon v-if="!store.previewLoading[key]"><Refresh /></el-icon>
@@ -182,26 +184,26 @@ function expiryColor(expire: number): string {
 
     <el-dialog
       v-model="showDialog"
-      :title="editingKey ? 'Edit Subscription' : 'Add Subscription'"
+      :title="editingKey ? t('subs.editDialogTitle') : t('subs.addDialogTitle')"
       width="500px"
     >
       <el-form label-width="110px">
-        <el-form-item label="Name (Key)" required>
-          <el-input v-model="formKey" placeholder="subscription1" />
+        <el-form-item :label="t('subs.nameKey')" required>
+          <el-input v-model="formKey" :placeholder="t('subs.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="URL" required>
-          <el-input v-model="formData.url" placeholder="https://..." />
+        <el-form-item :label="t('subs.url')" required>
+          <el-input v-model="formData.url" :placeholder="t('subs.urlPlaceholder')" />
         </el-form-item>
-        <el-form-item label="User-Agent">
-          <el-input v-model="formData.user_agent" placeholder="e.g. clashmeta" clearable />
+        <el-form-item :label="t('subs.userAgent')">
+          <el-input v-model="formData.user_agent" :placeholder="t('subs.userAgentPlaceholder')" clearable />
         </el-form-item>
-        <el-form-item label="Enabled">
+        <el-form-item :label="t('subs.enabled')">
           <el-switch v-model="formData.enabled" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="handleSave">Save</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSave">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

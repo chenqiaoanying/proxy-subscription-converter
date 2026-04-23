@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useConfigStore } from '@/stores/configs'
 
 const emit = defineEmits<{
@@ -8,19 +9,20 @@ const emit = defineEmits<{
   create: []
 }>()
 
+const { t } = useI18n()
 const store = useConfigStore()
 
 onMounted(() => store.fetchAll())
 
 async function handleDelete(id: string, name: string) {
-  await ElMessageBox.confirm(`Delete config "${name}"?`, 'Confirm', { type: 'warning' })
+  await ElMessageBox.confirm(t('list.confirmDelete', { name }), t('common.confirm'), { type: 'warning' })
   await store.remove(id)
-  ElMessage.success('Deleted')
+  ElMessage.success(t('list.deleted'))
 }
 
 function copyGenerateUrl(id: string) {
   navigator.clipboard.writeText(store.getGenerateUrl(id))
-  ElMessage.success('Generate URL copied')
+  ElMessage.success(t('list.urlCopied'))
 }
 
 function openGenerateUrl(id: string) {
@@ -35,22 +37,22 @@ function formatDate(s: string) {
 <template>
   <div style="padding: 24px">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
-      <h2 style="font-size: 20px; font-weight: 600">Configs</h2>
+      <h2 style="font-size: 20px; font-weight: 600">{{ t('list.heading') }}</h2>
       <el-button type="primary" @click="emit('create')">
         <el-icon><Plus /></el-icon>
-        New Config
+        {{ t('list.newConfig') }}
       </el-button>
     </div>
 
     <el-table :data="store.items" v-loading="store.loading" border style="width: 100%">
-      <el-table-column prop="name" label="Name" min-width="200" />
-      <el-table-column label="Created" width="180">
+      <el-table-column prop="name" :label="t('list.name')" min-width="200" />
+      <el-table-column :label="t('list.created')" width="180">
         <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="Updated" width="180">
+      <el-table-column :label="t('list.updated')" width="180">
         <template #default="{ row }">{{ formatDate(row.updated_at) }}</template>
       </el-table-column>
-      <el-table-column label="Actions" width="220" fixed="right">
+      <el-table-column :label="t('common.actions')" width="220" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="emit('edit', row.id)">
             <el-icon><Edit /></el-icon>
