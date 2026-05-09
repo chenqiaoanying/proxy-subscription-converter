@@ -205,6 +205,7 @@ async function handleImportFromUrl() {
     configData.value = parsed
     nextTick(() => { skipDirtyWatch = false })
     dirty.value = true
+    configUrl.value = importUrl.value
     importUrlVisible.value = false
     importUrl.value = ''
     ElMessage.success(t('editor.messages.importedFromUrl'))
