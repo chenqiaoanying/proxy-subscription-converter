@@ -6,8 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.database import engine, init_db
-from src.app.routers import generate
-from src.app.routers import configs
+from src.app.routers import auth, configs, generate
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,5 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(configs.router)
 app.include_router(generate.router)

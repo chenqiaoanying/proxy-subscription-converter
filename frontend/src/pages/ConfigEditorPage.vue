@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import YAML from 'yaml'
 import { useConfigStore } from '@/stores/configs'
+import { useAuthStore } from '@/stores/auth'
 import {
   TARGET_FORMATS,
   type ConfigData,
@@ -18,10 +20,13 @@ import TemplatePanel from '@/components/TemplatePanel.vue'
 import MonacoEditor from '@/components/MonacoEditor.vue'
 
 const props = defineProps<{ configId: string | null }>()
-const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
 const store = useConfigStore()
+const auth = useAuthStore()
+const router = useRouter()
+const route = useRoute()
+const loginDialogVisible = ref(false)
 const localConfigId = ref<string | null>(props.configId)
 const configName = ref(t('editor.defaultName'))
 const configData = ref<ConfigData>(emptyConfigData())
@@ -121,10 +126,19 @@ async function handleBack() {
       return
     }
   }
-  emit('close')
+  router.push(auth.isLoggedIn ? '/configs' : '/')
+}
+
+function signInToSave() {
+  loginDialogVisible.value = false
+  window.location.href = auth.loginUrl(route.fullPath)
 }
 
 async function handleSave() {
+  if (!auth.isLoggedIn) {
+    loginDialogVisible.value = true
+    return
+  }
   saving.value = true
   try {
     if (localConfigId.value) {
@@ -504,6 +518,22 @@ function copyToClipboard(text: string) {
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- Sign-in prompt when anonymous user clicks Save -->
+    <el-dialog
+      v-model="loginDialogVisible"
+      :title="t('auth.saveDialogTitle')"
+      width="420px"
+      align-center
+    >
+      <p style="color: var(--el-text-color-regular); font-size: 14px">
+        {{ t('auth.saveDialogBody') }}
+      </p>
+      <template #footer>
+        <el-button @click="loginDialogVisible = false">{{ t('auth.notNow') }}</el-button>
+        <el-button type="primary" @click="signInToSave">{{ t('auth.signInWithGithub') }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- Preview dialog -->
     <el-dialog

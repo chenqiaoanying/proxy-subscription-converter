@@ -15,6 +15,7 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.auth import get_current_user
 from src.app.database import get_db
 from src.app.formats import (
     EMITTERS,
@@ -26,7 +27,7 @@ from src.app.formats import (
     UrlTestOpts,
     detect_source_format,
 )
-from src.app.models import Config
+from src.app.models import Config, User
 from src.app.schemas import (
     AutoRegionGroupConfig,
     ConfigData,
@@ -515,10 +516,11 @@ async def generate_config(
     config_id: uuid.UUID,
     format: TargetFormat | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> Response:
-    """Load config from DB by ID and generate (requires DATABASE_URL)."""
+    """Load config from DB by ID and generate (requires DATABASE_URL, owner only)."""
     row = await db.get(Config, config_id)
-    if not row:
+    if not row or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Config not found")
     config = ConfigData.model_validate(row.data)
     result = await _run_generate(config, format)

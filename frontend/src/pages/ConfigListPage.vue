@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useConfigStore } from '@/stores/configs'
 
-const emit = defineEmits<{
-  edit: [id: string]
-  create: []
-}>()
-
 const { t } = useI18n()
 const store = useConfigStore()
+const router = useRouter()
 
 onMounted(() => store.fetchAll())
+
+function openEditor(id: string) {
+  router.push({ name: 'editor', params: { id } })
+}
+
+function createNew() {
+  router.push({ name: 'editor-new' })
+}
 
 async function handleDelete(id: string, name: string) {
   await ElMessageBox.confirm(t('list.confirmDelete', { name }), t('common.confirm'), { type: 'warning' })
@@ -21,12 +26,12 @@ async function handleDelete(id: string, name: string) {
 }
 
 function copyGenerateUrl(id: string) {
-  navigator.clipboard.writeText(store.getGenerateUrl(id))
+  navigator.clipboard.writeText(store.getGenerateUrl(id, 'sing-box'))
   ElMessage.success(t('list.urlCopied'))
 }
 
 function openGenerateUrl(id: string) {
-  window.open(store.getGenerateUrl(id), '_blank')
+  window.open(store.getGenerateUrl(id, 'sing-box'), '_blank')
 }
 
 function formatDate(s: string) {
@@ -38,7 +43,7 @@ function formatDate(s: string) {
   <div style="padding: 24px">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
       <h2 style="font-size: 20px; font-weight: 600">{{ t('list.heading') }}</h2>
-      <el-button type="primary" @click="emit('create')">
+      <el-button type="primary" @click="createNew">
         <el-icon><Plus /></el-icon>
         {{ t('list.newConfig') }}
       </el-button>
@@ -54,7 +59,7 @@ function formatDate(s: string) {
       </el-table-column>
       <el-table-column :label="t('common.actions')" width="220" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="emit('edit', row.id)">
+          <el-button size="small" @click="openEditor(row.id)">
             <el-icon><Edit /></el-icon>
           </el-button>
           <el-button size="small" @click="copyGenerateUrl(row.id)">

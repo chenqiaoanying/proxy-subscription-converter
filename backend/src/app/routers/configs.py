@@ -5,22 +5,34 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.auth import get_current_user
 from src.app.database import get_db
-from src.app.models import Config
+from src.app.models import Config, User
 from src.app.schemas import ConfigCreate, ConfigListItem, ConfigOut, ConfigUpdate
 
 router = APIRouter()
 
 
 @router.get("/configs", response_model=list[ConfigListItem])
-async def list_configs(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Config).order_by(Config.created_at.desc()))
+async def list_configs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Config)
+        .where(Config.user_id == user.id)
+        .order_by(Config.created_at.desc())
+    )
     return result.scalars().all()
 
 
 @router.post("/configs", response_model=ConfigOut, status_code=201)
-async def create_config(body: ConfigCreate, db: AsyncSession = Depends(get_db)):
-    config = Config(name=body.name, data=body.data.model_dump())
+async def create_config(
+    body: ConfigCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    config = Config(user_id=user.id, name=body.name, data=body.data.model_dump())
     db.add(config)
     await db.commit()
     await db.refresh(config)
@@ -28,19 +40,26 @@ async def create_config(body: ConfigCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/configs/{config_id}", response_model=ConfigOut)
-async def get_config(config_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_config(
+    config_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     config = await db.get(Config, config_id)
-    if not config:
+    if not config or config.user_id != user.id:
         raise HTTPException(status_code=404, detail="Config not found")
     return config
 
 
 @router.put("/configs/{config_id}", response_model=ConfigOut)
 async def update_config(
-    config_id: uuid.UUID, body: ConfigUpdate, db: AsyncSession = Depends(get_db)
+    config_id: uuid.UUID,
+    body: ConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     config = await db.get(Config, config_id)
-    if not config:
+    if not config or config.user_id != user.id:
         raise HTTPException(status_code=404, detail="Config not found")
     if body.name is not None:
         config.name = body.name
@@ -53,9 +72,13 @@ async def update_config(
 
 
 @router.delete("/configs/{config_id}", status_code=204)
-async def delete_config(config_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_config(
+    config_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     config = await db.get(Config, config_id)
-    if not config:
+    if not config or config.user_id != user.id:
         raise HTTPException(status_code=404, detail="Config not found")
     await db.delete(config)
     await db.commit()

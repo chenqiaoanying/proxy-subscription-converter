@@ -188,4 +188,16 @@ export default {
     en: 'English',
     zhCn: '简体中文',
   },
+  auth: {
+    signInWithGithub: 'Sign in with GitHub',
+    signOut: 'Sign out',
+    signedOut: 'Signed out',
+    myConfigs: 'My Configs',
+    loginRequired: 'Sign in required',
+    loginIntro: 'Saving and managing configs requires a GitHub account. You can still build and generate configs without signing in.',
+    continueWithout: 'Continue without signing in',
+    saveDialogTitle: 'Sign in to save',
+    saveDialogBody: 'Saving a config requires a GitHub account so you can manage and reload it later. Your work so far stays in the editor.',
+    notNow: 'Not now',
+  },
 }

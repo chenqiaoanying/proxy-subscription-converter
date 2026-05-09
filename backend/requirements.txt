@@ -30,6 +30,8 @@ idna==3.11
     # via
     #   anyio
     #   httpx
+itsdangerous==2.2.0
+    # via proxy-subscription-converter
 psycopg==3.3.3
     # via proxy-subscription-converter
 psycopg-binary==3.3.3 ; implementation_name != 'pypy'

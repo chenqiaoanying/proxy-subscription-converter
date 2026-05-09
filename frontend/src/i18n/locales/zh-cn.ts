@@ -190,6 +190,18 @@ const messages: typeof en = {
     en: 'English',
     zhCn: '简体中文',
   },
+  auth: {
+    signInWithGithub: '使用 GitHub 登录',
+    signOut: '退出登录',
+    signedOut: '已退出登录',
+    myConfigs: '我的配置',
+    loginRequired: '需要登录',
+    loginIntro: '保存和管理配置需要 GitHub 账号。未登录也可以继续构建和生成配置。',
+    continueWithout: '不登录继续使用',
+    saveDialogTitle: '登录后保存',
+    saveDialogBody: '保存配置需要 GitHub 账号，以便后续管理和重新加载。当前编辑内容会保留在编辑器中。',
+    notNow: '暂不',
+  },
 }
 
 export default messages

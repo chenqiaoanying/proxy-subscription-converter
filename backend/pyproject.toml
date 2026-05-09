@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.8",
     "aiosqlite>=0.22.1",
     "pyyaml>=6.0.3",
+    "itsdangerous>=2.2",
 ]
 
 [tool.uv]

@@ -15,6 +15,11 @@ from sqlalchemy.pool import StaticPool
 
 class Settings(BaseSettings):
     database_url: str | None = None
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+    session_secret: str | None = None
+    oauth_redirect_url: str = "http://localhost:5173/api/auth/callback"
+    frontend_url: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env"}
 
