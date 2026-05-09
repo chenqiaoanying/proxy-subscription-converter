@@ -30,6 +30,9 @@ const saving = ref(false)
 const loading = ref(false)
 const generating = ref(false)
 const configUrl = ref('')
+const importUrl = ref('')
+const importUrlVisible = ref(false)
+const importingFromUrl = ref(false)
 const previewVisible = ref(false)
 const previewBody = ref('')
 const previewLanguage = ref<'json' | 'yaml'>('json')
@@ -193,6 +196,25 @@ function handleExportConfig() {
   dirty.value = false
 }
 
+async function handleImportFromUrl() {
+  if (!importUrl.value) return
+  importingFromUrl.value = true
+  try {
+    const parsed = await store.fetchConfigFromUrl(importUrl.value)
+    skipDirtyWatch = true
+    configData.value = parsed
+    nextTick(() => { skipDirtyWatch = false })
+    dirty.value = true
+    importUrlVisible.value = false
+    importUrl.value = ''
+    ElMessage.success(t('editor.messages.importedFromUrl'))
+  } catch {
+    ElMessage.error(t('editor.messages.importFromUrlFailed'))
+  } finally {
+    importingFromUrl.value = false
+  }
+}
+
 function handleImportConfig() {
   const input = document.createElement('input')
   input.type = 'file'
@@ -238,6 +260,10 @@ function copyToClipboard(text: string) {
       <el-button @click="handleImportConfig">
         <el-icon><Upload /></el-icon>
         {{ t('editor.import') }}
+      </el-button>
+      <el-button @click="importUrlVisible = true">
+        <el-icon><Link /></el-icon>
+        {{ t('editor.importFromUrl') }}
       </el-button>
       <el-button @click="handleExportConfig">
         <el-icon><Download /></el-icon>
@@ -527,6 +553,29 @@ function copyToClipboard(text: string) {
         height="70vh"
         style="border: 1px solid #dcdfe6; border-radius: 4px"
       />
+    </el-dialog>
+
+    <!-- Import from URL dialog -->
+    <el-dialog
+      v-model="importUrlVisible"
+      :title="t('editor.importFromUrlTitle')"
+      width="480px"
+      destroy-on-close
+      @closed="importUrl = ''"
+    >
+      <el-input
+        v-model="importUrl"
+        :placeholder="t('editor.importFromUrlPlaceholder')"
+        clearable
+        :prefix-icon="Link"
+        @keyup.enter="handleImportFromUrl"
+      />
+      <template #footer>
+        <el-button @click="importUrlVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="importingFromUrl" @click="handleImportFromUrl">
+          {{ t('editor.importFromUrlConfirm') }}
+        </el-button>
+      </template>
     </el-dialog>
   </div>
 </template>

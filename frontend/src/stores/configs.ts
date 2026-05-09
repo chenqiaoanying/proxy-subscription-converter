@@ -8,6 +8,7 @@ import {
   type ProxyInfo,
   type SubscriptionUserInfo,
   type TargetFormat,
+  ConfigDataSchema,
   ConfigListItemSchema,
   ConfigOutSchema,
   emptyConfigData,
@@ -99,6 +100,11 @@ export const useConfigStore = defineStore('configs', {
         mediaType,
         dropped: droppedHeader ? Number(droppedHeader) : 0,
       }
+    },
+
+    async fetchConfigFromUrl(url: string): Promise<ConfigData> {
+      const res = await axios.get(`/api/configs/fetch?url=${encodeURIComponent(url)}`)
+      return ConfigDataSchema.parse(res.data)
     },
 
     async previewSubscription(name: string, url: string, userAgent?: string | null) {

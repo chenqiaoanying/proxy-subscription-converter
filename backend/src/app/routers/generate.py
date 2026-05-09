@@ -510,6 +510,26 @@ async def generate_from_url(
     return Response(content=result.body, media_type=result.media_type, headers=result.headers)
 
 
+@router.get("/configs/fetch")
+async def fetch_config_from_url(url: str) -> dict[str, Any]:
+    """Fetch a ConfigData document from a URL and return it as JSON (no generation)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, follow_redirects=True, timeout=30.0)
+            resp.raise_for_status()
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch config URL: {e}")
+    try:
+        as_yaml = _is_yaml_response(url, resp.headers.get("content-type", ""))
+        raw = _parse_config_body(resp.text, as_yaml)
+        config = ConfigData.model_validate(raw)
+    except Exception:
+        raise HTTPException(
+            status_code=422, detail="URL did not return a valid config document"
+        )
+    return config.model_dump()
+
+
 @router.get("/configs/{config_id}/generate")
 async def generate_config(
     config_id: uuid.UUID,
