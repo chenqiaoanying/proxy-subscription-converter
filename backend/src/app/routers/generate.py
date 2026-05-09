@@ -497,12 +497,14 @@ async def generate_from_url(
             resp = await client.get(url, follow_redirects=True, timeout=30.0)
             resp.raise_for_status()
     except httpx.HTTPError as e:
+        logger.warning("Failed to fetch config URL %s: %s", url, e)
         raise HTTPException(status_code=400, detail=f"Failed to fetch config URL: {e}")
     try:
         as_yaml = _is_yaml_response(url, resp.headers.get("content-type", ""))
         raw = _parse_config_body(resp.text, as_yaml)
         config = ConfigData.model_validate(raw)
     except Exception:
+        logger.warning("Invalid config document at %s", url, exc_info=True)
         raise HTTPException(
             status_code=422, detail="URL did not return a valid config document"
         )
@@ -518,12 +520,14 @@ async def fetch_config_from_url(url: str) -> dict[str, Any]:
             resp = await client.get(url, follow_redirects=True, timeout=30.0)
             resp.raise_for_status()
     except httpx.HTTPError as e:
+        logger.warning("Failed to fetch config URL %s: %s", url, e)
         raise HTTPException(status_code=400, detail=f"Failed to fetch config URL: {e}")
     try:
         as_yaml = _is_yaml_response(url, resp.headers.get("content-type", ""))
         raw = _parse_config_body(resp.text, as_yaml)
         config = ConfigData.model_validate(raw)
     except Exception:
+        logger.warning("Invalid config document at %s", url, exc_info=True)
         raise HTTPException(
             status_code=422, detail="URL did not return a valid config document"
         )
